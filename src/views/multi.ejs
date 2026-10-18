@@ -1,0 +1,36 @@
+<% const rqs = locals.rqs || ''; %>
+<%- include('_head', { title: 'マルチ検索', active: 'multi' }) %>
+<h2 class="mb16">マルチ検索</h2>
+<form method="get" action="/multi" class="panel mb16">
+  <div class="sm mute mb8">Riot ID を1行に1人ずつ（最大5人）。ロビーのチャットをそのまま貼り付けても使えます。</div>
+  <textarea name="ids" rows="5" placeholder="ゲーム名#タグ" class="mb12"><%= raw %></textarea>
+  <div class="flex g12 wrapf aic"><%- include('_region_select') %><button class="btn primary">検索</button></div>
+</form>
+
+<% if (players) { %>
+  <div class="grid2">
+    <% players.forEach(p => { %>
+      <div class="panel">
+        <% if (p.error) { %>
+          <div class="b"><%= p.input %></div><div class="sm gold"><%= p.error %></div>
+        <% } else { %>
+          <a class="lg b" href="/summoner?riotId=<%= encodeURIComponent(p.name) %><%= rqs %>"><%= p.name %></a>
+          <div class="mt8 mb12"><%- include('_rank', { e: p.solo, label: 'ソロ / デュオ' }) %></div>
+          <div class="panel mb12 u39">
+            <div class="sm">直近 <%= p.recent.games %> 戦: <b><%= p.recent.wins %>勝<%= p.recent.losses %>敗</b> <span class="num b <%= p.recent.winRate >= 50 ? 'win' : 'lose' %>"><%= p.recent.winRate %>%</span></div>
+            <div class="sm mute">平均 <%= p.recent.avgKills %> / <%= p.recent.avgDeaths %> / <%= p.recent.avgAssists %> ・ KDA <span class="num win"><%= p.recent.kda %></span></div>
+          </div>
+          <div class="xs mute mb4">直近のよく使うチャンピオン</div>
+          <div class="flex wrapf g8 mb12">
+            <% p.champs.forEach(c => { %><span class="badge flex aic g4 u40"><img class="ico s24" src="<%= h.champImg(c.championName) %>" alt="" data-hide-on-error><%= h.cname(c.championName) %> <span class="num <%= c.winRate >= 50 ? 'win' : 'lose' %>"><%= c.winRate %>%</span> (<%= c.games %>)</span><% }) %>
+          </div>
+          <div class="xs mute mb4">マスタリー上位</div>
+          <div class="flex wrapf g8">
+            <% p.masteries.forEach(m => { const cid = h.champIdByKey(m.championId); %><% if (cid) { %><span class="badge flex aic g4 u40"><img class="ico s24" src="<%= h.champImg(cid) %>" alt="" data-hide-on-error><%= h.cname(cid) %> <span class="gold">Lv.<%= m.championLevel %></span></span><% } %><% }) %>
+          </div>
+        <% } %>
+      </div>
+    <% }) %>
+  </div>
+<% } %>
+<%- include('_foot') %>

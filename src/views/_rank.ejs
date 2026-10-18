@@ -1,0 +1,28 @@
+<%
+  const t = e ? e.tier : 'NONE';
+  const abbr = { IRON: 'I', BRONZE: 'B', SILVER: 'S', GOLD: 'G', PLATINUM: 'P', EMERALD: 'E', DIAMOND: 'D', MASTER: 'M', GRANDMASTER: 'GM', CHALLENGER: 'C', NONE: '–' }[t] || '?';
+  const apex = ['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(t);
+  const games = e ? e.wins + e.losses : 0;
+  const wr = games > 0 ? Math.round((e.wins / games) * 100) : 0;
+%>
+<div class="flex aic g12 tier-<%= t %>">
+  <div class="hex"><b><%= abbr %></b></div>
+  <div class="grow">
+    <div class="xs mute"><%= label %></div>
+    <% if (e) { %>
+      <div class="lg tier-text"><%= e.tier %><%= apex ? '' : ' ' + e.rank %></div>
+      <div class="sm"><span class="num b"><%= e.leaguePoints %></span> LP</div>
+    <% } else if (locals.failed) { %>
+      <div class="lg tier-text">取得できません</div>
+      <div class="xs mute">ランク情報を取得できませんでした。しばらくしてから更新してください。</div>
+    <% } else { %>
+      <div class="lg tier-text">Unranked</div>
+    <% } %>
+  </div>
+  <% if (e) { %>
+    <div class="right sm u1">
+      <div class="mute"><%= e.wins %>勝 <%= e.losses %>敗</div>
+      <div class="num b <%= wr >= 50 ? 'win' : 'lose' %>"><%= wr %>%</div>
+    </div>
+  <% } %>
+</div>

@@ -1,0 +1,65 @@
+<%
+  const num = (n) => Number(n || 0).toLocaleString('ja-JP');
+  const sg = (n) => n === null || n === undefined ? '—' : (n > 0 ? '+' : n < 0 ? '−' : '±') + num(Math.abs(n));
+  const cls = (n) => n > 0 ? 'win' : n < 0 ? 'lose' : 'mute';
+%>
+<div class="panel tl u41">
+  <div class="b mb8">タイムライン分析</div>
+
+  <% if (t.findings.length) { %>
+    <ul class="tl-find sm"><% t.findings.forEach(f => { %><li><%= f %></li><% }) %></ul>
+  <% } else { %>
+    <div class="sm mute mb8">目立った差はありません（これも正しい結果です）。</div>
+  <% } %>
+
+  <% if (t.checkpoints.length) { %>
+    <div class="scroll mt8">
+      <table class="tbl sm">
+        <thead><tr><th scope="col">時刻</th><th scope="col">CS（自分）</th><% if (t.opp) { %><th scope="col">CS（相手）</th><th scope="col">差</th><th scope="col">ゴールド差</th><th scope="col">経験値差</th><% } %><th scope="col">チームのゴールド差</th></tr></thead>
+        <tbody>
+          <% t.checkpoints.forEach(c => { %>
+            <tr>
+              <td class="b"><%= c.min %>分</td>
+              <td class="num"><%= c.me ? c.me.cs : '—' %></td>
+              <% if (t.opp) { %>
+                <td class="num"><%= c.opp ? c.opp.cs : '—' %></td>
+                <td class="num <%= cls(c.csDiff) %>"><%= sg(c.csDiff) %></td>
+                <td class="num <%= cls(c.goldDiff) %>"><%= sg(c.goldDiff) %></td>
+                <td class="num <%= cls(c.xpDiff) %>"><%= sg(c.xpDiff) %></td>
+              <% } %>
+              <td class="num <%= cls(c.teamDiff) %>"><%= sg(c.teamDiff) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <div class="xs mute mt8">
+      <% if (t.opp) { %>レーン相手: <img class="ico s16" src="<%= h.champImg(t.opp.championName) %>" alt="" data-hide-on-error> <%= h.cname(t.opp.championName) %>（同じロールの相手チームのプレイヤー）。<% } else { %>同じロールの相手が1人に決まらないため、レーン相手との比較は出していません。<% } %>
+      CS にはジャングルのモンスターを含みます。ジャングル・サポートの CS やゴールドの比較は参考程度です。
+    </div>
+  <% } else { %>
+    <div class="sm mute">10分に届く前に終わった試合のため、時刻ごとの比較はありません。</div>
+  <% } %>
+
+  <% if (chartTeam) { %>
+    <div class="mt16"><div class="sm b mb8">チームのゴールド差の推移 <span class="mute u21">（上が味方の先行）</span></div><%- chartTeam %></div>
+  <% } %>
+  <% if (chartLane) { %>
+    <div class="mt16"><div class="sm b mb8">レーン相手とのゴールド差の推移 <span class="mute u21">（上が自分の先行）</span></div><%- chartLane %></div>
+  <% } %>
+
+  <div class="mt16 sm">
+    <span class="b">自分のキル・デス</span>
+    <span class="mute"> ・ キル <%= t.kills.length %> / デス <%= t.deaths.length %> / アシスト <%= t.assists.length %></span>
+    <% if (t.deaths.length) { %><div class="xs mute mt8">デスした時刻: <%= t.deaths.map(m => m + '分').join('、') %></div><% } %>
+  </div>
+
+  <% if (t.objectives.length) { %>
+    <div class="mt16"><div class="sm b mb8">オブジェクト・建物（<span class="win">自チーム</span> / <span class="lose">相手</span>）</div>
+      <div class="flex wrapf g8 xs">
+        <% t.objectives.forEach(o => { %><span class="badge <%= o.mine ? '' : 'lose' %>"><%= o.min %>分 <%= o.label %></span><% }) %>
+      </div>
+    </div>
+  <% } %>
+  <div class="note">時刻ごとの値は Riot のタイムライン（毎分のスナップショット）から読んでいます。数値の差は事実の比較であり、原因や良し悪しを断定するものではありません。</div>
+</div>

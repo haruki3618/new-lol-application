@@ -1,0 +1,21 @@
+<%- include('_head', { title: 'このサイトについて', active: '' }) %>
+<div class="panel u5">
+  <h2 class="mb12">このサイトについて</h2>
+  <p class="sm mute">LoL Analytics は、Riot Games の公式 API と Data Dragon を利用した League of Legends の戦績解析ツール（対応リージョンは検索画面で選べます）です。個人が運営する非公式ツールで、Riot Games が承認・後援するものではありません。</p>
+
+  <h3 class="mb8 u6">保存しているデータ</h3>
+  <ul class="sm mute u7">
+    <li>検索・表示した試合の記録（試合 ID、日時、モード、参加者の公開されている成績。統計の集計に使います）</li>
+    <li>ランクの推移（LP・ティア・勝敗数）。プロフィールを開いたときに記録します</li>
+    <li>Riot ID と内部 ID の対応など、API の問い合わせ結果の一時的なキャッシュ</li>
+  </ul>
+  <p class="sm mute">いずれも Riot の API で公開されている情報です。メールアドレスやパスワードなどは扱いません。アクセス制限のため、IP アドレスをメモリ上で一時的に数えますが、保存はしません。</p>
+  <p class="sm mute">お使いのブラウザの中にだけ、表示テーマと、最近検索した Riot ID（最大 6 件）を保存します。サーバーには送らず、トップ画面の「履歴を消す」で消せます。</p>
+
+  <h3 class="mb8 u6">データの削除について</h3>
+  <p class="sm mute">自分の試合データの削除を希望する場合は、運営者へ連絡してください。</p>
+
+  <h3 class="mb8 u6">表記</h3>
+  <p class="xs mute">LoL Analytics isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.</p>
+</div>
+<%- include('_foot') %>

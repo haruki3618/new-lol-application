@@ -1,0 +1,50 @@
+<% const rqs = locals.rqs || ''; const rq = locals.rq || ''; %>
+<%
+  const href = (over) => {
+    const s = Object.assign({ queue: queueKey, tier, division, page: 1 }, over);
+    return '/ranking?' + Object.entries(s).filter(([k, v]) => v && !(k === 'page' && v === 1)).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&') + rqs;
+  };
+%>
+<%- include('_head', { title: 'ランキング', active: 'ranking' }) %>
+<h2 class="mb16">ランキング</h2>
+<form method="get" action="/ranking" class="flex g8 aic mb16">
+  <input type="hidden" name="queue" value="<%= queueKey %>"><input type="hidden" name="tier" value="<%= tier %>"><% if (!apex) { %><input type="hidden" name="division" value="<%= division %>"><% } %>
+  <%- include('_region_select') %><button class="btn">切り替え</button>
+</form>
+<div class="pills">
+  <% Object.entries(queues).forEach(([k, label]) => { %><a class="pill <%= k === queueKey ? 'on' : '' %>" href="<%= href({ queue: k, page: 1 }) %>"><%= label %></a><% }) %>
+</div>
+<div class="pills">
+  <% Object.entries(tiers).forEach(([k, label]) => { %><a class="pill <%= k === tier ? 'on' : '' %>" href="<%= href({ tier: k, division: '', page: 1 }) %>"><%= label %></a><% }) %>
+</div>
+<% if (!apex) { %>
+  <div class="pills">
+    <% ['I', 'II', 'III', 'IV'].forEach(d => { %><a class="pill <%= d === division ? 'on' : '' %>" href="<%= href({ division: d, page: 1 }) %>"><%= d %></a><% }) %>
+  </div>
+<% } %>
+
+<% if (locals.staleMin) { %><div class="panel empty inline-err mb16" role="status">Riot のサーバーが混み合っているため、最新の順位表を取得できませんでした。約 <%= staleMin %> 分前のデータを表示しています。</div><% } %>
+<div class="panel tier-<%= tier.toUpperCase() %>">
+  <div class="panel-h"><span class="tier-text"><%= tiers[tier] %><%= apex ? '' : ' ' + division %></span> <span class="sub"><%= apex ? total + '人' : 'ページ内はLP順' %></span></div>
+  <% if (rows.length === 0) { %><div class="empty">該当するプレイヤーがいません。</div><% } else { %>
+    <div class="scroll"><table class="tbl">
+      <thead><tr><th scope="col">#</th><th scope="col">プレイヤー</th><th scope="col">LP</th><th scope="col">勝率</th><th scope="col">試合数</th></tr></thead>
+      <tbody>
+        <% rows.forEach(r => { %>
+          <tr>
+            <td class="num mute"><%= r.rank %></td>
+            <td><% if (r.name) { %><a class="b" href="/summoner?riotId=<%= encodeURIComponent(r.name) %><%= rqs %>"><%= r.name %></a><% } else { %><span class="mute">非公開</span><% } %></td>
+            <td class="num b gold"><%= r.lp %></td>
+            <td class="u16"><span class="num b <%= r.winRate >= 50 ? 'win' : 'lose' %>"><%= r.winRate %>%</span><div class="bar <%= r.winRate >= 50 ? '' : 'red' %> u17"><i data-style="width:<%= r.winRate %>%"></i></div></td>
+            <td class="num mute"><%= r.wins + r.losses %> <span class="xs hide-sp">(<%= r.wins %>勝<%= r.losses %>敗)</span></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table></div>
+  <% } %>
+</div>
+<div class="flex between mt16">
+  <% if (page > 1) { %><a class="btn" href="<%= href({ page: page - 1 }) %>">← 前へ</a><% } else { %><span></span><% } %>
+  <% if (hasMore) { %><a class="btn" href="<%= href({ page: page + 1 }) %>">次へ →</a><% } %>
+</div>
+<%- include('_foot') %>

@@ -1,0 +1,68 @@
+<% const rqs = locals.rqs || ''; %>
+<%- include('_head', { title: 'デュオ比較', active: 'duo' }) %>
+<h2 class="mb16">デュオ / 対戦比較</h2>
+<%- include('_retention') %>
+<form method="get" action="/duo" class="panel mb16">
+  <div class="sm mute mb8">2人のRiot IDを入力すると、保存済みの試合から「同じチームで戦った試合」と「敵として戦った試合」を集計します。</div>
+  <div class="grid2 mb12">
+    <input type="text" name="a" value="<%= rawA %>" placeholder="プレイヤーA（ゲーム名#タグ）" autocomplete="off" required>
+    <input type="text" name="b" value="<%= rawB %>" placeholder="プレイヤーB（ゲーム名#タグ）" autocomplete="off" required>
+  </div>
+  <div class="flex g12 wrapf aic"><%- include('_region_select') %><button class="btn primary">比較する</button></div>
+</form>
+
+<% if (error) { %><div class="alert warn mb16"><%= error %></div><% } %>
+
+<% if (result) { %>
+  <% if (result.totalCommon === 0) { %>
+    <div class="panel empty">共通の試合が保存されていません。どちらかのプロフィールを開いて戦績を同期すると、増えることがあります。</div>
+  <% } else { %>
+    <div class="panel mb16">
+      <div class="lg b mb8"><a href="/summoner?riotId=<%= encodeURIComponent(names.a) %><%= rqs %>"><%= names.a %></a> × <a href="/summoner?riotId=<%= encodeURIComponent(names.b) %><%= rqs %>"><%= names.b %></a></div>
+      <div class="sm mute">共通の試合 <b><%= result.totalCommon %></b> 戦（デュオ <%= result.duo.games %> ・ 対戦 <%= result.versus.games %>）</div>
+    </div>
+
+    <div class="grid2 mb16">
+      <div class="panel">
+        <div class="xs mute mb4">デュオ時の成績</div>
+        <% if (result.duo.games > 0) { %>
+          <div class="lg"><b><%= result.duo.wins %>勝<%= result.duo.losses %>敗</b> <span class="num b <%= result.duo.winRate >= 50 ? 'win' : 'lose' %>"><%= result.duo.winRate %>%</span></div>
+          <div class="sm mt8"><%= names.a %>: KDA <span class="num"><%= result.duo.a.kda %></span></div>
+          <div class="sm"><%= names.b %>: KDA <span class="num"><%= result.duo.b.kda %></span></div>
+          <div class="sm mute mt8">単独の勝率（この集計内）: A <%= result.solo.a.winRate %>% ・ B <%= result.solo.b.winRate %>%</div>
+        <% } else { %><div class="sm mute">同じチームの試合はありません。</div><% } %>
+        <div class="sm mt8 <%= result.verdict.level === 'good' ? 'win' : result.verdict.level === 'bad' ? 'lose' : 'mute' %>"><%= result.verdict.text %></div>
+      </div>
+      <div class="panel">
+        <div class="xs mute mb4">対戦成績（<%= names.a %> から見て）</div>
+        <% if (result.versus.games > 0) { %>
+          <div class="lg"><b><%= result.versus.wins %>勝<%= result.versus.losses %>敗</b> <span class="num b <%= result.versus.winRate >= 50 ? 'win' : 'lose' %>"><%= result.versus.winRate %>%</span></div>
+        <% } else { %><div class="sm mute">敵チームとして戦った試合はありません。</div><% } %>
+      </div>
+    </div>
+
+    <% if (result.duo.roles.length) { %>
+      <div class="panel mb16">
+        <div class="b mb8">ロールの組み合わせ</div>
+        <% result.duo.roles.forEach(r => { %>
+          <div class="sm flex g12"><span class="grow"><%= roleLabels[r.roleA] || r.roleA %> + <%= roleLabels[r.roleB] || r.roleB %></span><span><%= r.games %>戦 <%= r.wins %>勝</span><span class="num b <%= r.winRate >= 50 ? 'win' : 'lose' %>"><%= r.winRate %>%</span></div>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <% if (result.duo.pairs.length) { %>
+      <div class="panel mb16">
+        <div class="b mb8">よく組んだチャンピオン</div>
+        <% result.duo.pairs.forEach(c => { %>
+          <div class="sm flex aic g8 mb4">
+            <img class="ico s24" src="<%= h.champImg(c.champA) %>" alt="" data-hide-on-error><%= h.cname(c.champA) %>
+            <span class="mute">+</span>
+            <img class="ico s24" src="<%= h.champImg(c.champB) %>" alt="" data-hide-on-error><%= h.cname(c.champB) %>
+            <span class="grow"></span><span><%= c.games %>戦</span><span class="num b <%= c.winRate >= 50 ? 'win' : 'lose' %>"><%= c.winRate %>%</span>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  <% } %>
+<% } %>
+<%- include('_foot') %>

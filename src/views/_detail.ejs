@@ -1,0 +1,41 @@
+<%
+  const rune = (id) => h.runeImg(id);
+%>
+<div class="panel u41">
+  <div class="mb12">
+    <div class="b mb8">ルーン</div>
+    <div class="flex aic wrapf g4">
+      <% if (rune(d.runes.primaryStyle)) { %><img class="ico s24" src="<%= rune(d.runes.primaryStyle) %>" alt="<%= h.runeAlt(d.runes.primaryStyle) %>"><% } %>
+      <% d.runes.primary.forEach((id, i) => { %>
+        <% if (rune(id)) { %><img class="ico <%= i === 0 ? 's40' : 's28' %>" src="<%= rune(id) %>" alt="<%= h.runeAlt(id) %>"><% } %>
+      <% }) %>
+      <span class="mute u42">|</span>
+      <% if (rune(d.runes.subStyle)) { %><img class="ico s24" src="<%= rune(d.runes.subStyle) %>" alt="<%= h.runeAlt(d.runes.subStyle) %>"><% } %>
+      <% d.runes.sub.forEach(id => { %><% if (rune(id)) { %><img class="ico s28" src="<%= rune(id) %>" alt="<%= h.runeAlt(id) %>"><% } %><% }) %>
+    </div>
+    <div class="sm mute mt8">ステータス: <%= d.runes.shards.join(' / ') %></div>
+  </div>
+
+  <div class="mb12">
+    <div class="b mb8">スキル順 <% if (d.maxOrder.length) { %><span class="sm mute u21">最大化: <%= d.maxOrder.join(' > ') %></span><% } %></div>
+    <div class="flex wrapf g4">
+      <% d.skills.forEach((s, i) => { %>
+        <span class="skill sk-<%= s %>" title="Lv<%= i + 1 %>"><%= s %></span>
+      <% }) %>
+    </div>
+  </div>
+
+  <div>
+    <div class="b mb8">アイテムビルド（完成品の購入順）</div>
+    <div class="flex aic wrapf g8">
+      <% d.build.forEach((b, i) => { %>
+        <% if (i > 0) { %><span class="mute">›</span><% } %>
+        <div class="center">
+          <img class="ico sq s32" src="<%= h.itemImg(b.id) %>" alt="<%= h.itemAlt(b.id) %>" data-hide-on-error>
+          <div class="xs mute"><%= b.min %>分</div>
+        </div>
+      <% }) %>
+      <% if (d.build.length === 0) { %><span class="mute sm">対象のアイテムがありません</span><% } %>
+    </div>
+  </div>
+</div>

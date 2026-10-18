@@ -1,0 +1,31 @@
+# お気に入り追跡（Discord通知）を15分おきに1周確認する（無料）。使わないなら、このファイルを削除してください。
+# 必要な Secrets: RIOT_API_KEY / MONGODB_URI
+name: watch
+
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *" # UTC
+  workflow_dispatch:
+
+concurrency:
+  group: watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run watch:once
+        env:
+          RIOT_API_KEY: ${{ secrets.RIOT_API_KEY }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          # Webhook を暗号化して保存している場合に必要（サーバーと同じ値）
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          STRICT_ENV: "1"

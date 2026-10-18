@@ -1,0 +1,16 @@
+<% if (comp) { %>
+  <div class="comp">
+    <div class="flex aic wrapf g8">
+      <span class="mute">構成</span>
+      <% comp.tags.forEach(t => { %><span class="badge"><%= t.label %> ×<%= t.count %></span><% }) %>
+      <span class="mute ml-auto">ダメージ傾向 <b class="u4"><%= comp.damageLabel %></b></span>
+    </div>
+    <div class="flex aic g8 mt8">
+      <span class="xs lose">物理 <%= comp.adShare %>%</span>
+      <div class="split grow"><div class="a" data-style="width:<%= comp.adShare %>%"></div><div class="b2" data-style="width:<%= comp.apShare %>%"></div></div>
+      <span class="xs win">魔法 <%= comp.apShare %>%</span>
+    </div>
+    <% comp.warnings.forEach(w => { %><div class="warn">⚠ <%= w %></div><% }) %>
+    <div class="xs mute mt8">チャンピオンのタイプと評価値からの目安です（実際のダメージではありません）。</div>
+  </div>
+<% } %>

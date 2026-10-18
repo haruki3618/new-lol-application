@@ -1,0 +1,103 @@
+<% const rqs = locals.rqs || ''; %>
+<%
+  const labelCls = (l) => l === 'MVP' ? 'mvp' : l === 'ACE' ? 'ace' : '';
+  const scoreCls = (s) => s >= 7 ? 'gold' : s >= 5 ? '' : 'mute';
+  const tName = (id) => id === 100 ? 'ブルーチーム' : id === 200 ? 'レッドチーム' : 'チーム ' + id;
+  const fmtDur = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  const num = (n) => Number(n || 0).toLocaleString('ja-JP');
+  const short = (n) => (n ? n.split('#')[0] : '非公開');
+  const t0 = match.teams[0], t1 = match.teams[1];
+%>
+<div class="match <%= match.win ? 'w' : 'l' %>">
+  <div class="m-head" data-collapse="m<%= i %>" role="button" tabindex="0" aria-expanded="false" aria-controls="m<%= i %>">
+    <div class="m-res">
+      <div class="r <%= match.win ? 'win' : 'lose' %>"><%= match.win ? '勝利' : '敗北' %></div>
+      <div class="xs"><%= match.queueName %></div>
+      <div class="xs mute"><%= fmtDur(match.gameDuration) %></div>
+      <div class="xs mute"><%= timeAgo(match.gameCreation) %></div>
+    </div>
+
+    <div class="m-champ flex aic g8">
+      <div class="u18">
+        <img class="ico s48" src="<%= h.champImg(match.championName) %>" alt="" data-hide-on-error>
+        <span class="xs num u19"><%= match.champLevel %></span>
+      </div>
+      <div class="m-sp">
+      <div class="dots">
+        <% [match.spell1, match.spell2].forEach(sp => { %><% if (h.spellImg(sp)) { %><img class="ico sq s20" src="<%= h.spellImg(sp) %>" alt="<%= h.spellAlt(sp) %>"><% } else { %><span class="ico sq s20"></span><% } %><% }) %>
+      </div>
+      <div class="dots">
+        <% if (h.runeImg(match.keystone)) { %><img class="ico s20" src="<%= h.runeImg(match.keystone) %>" alt="<%= h.runeAlt(match.keystone) %>"><% } else { %><span class="ico s20"></span><% } %>
+        <% if (h.runeImg(match.subStyle)) { %><img class="ico s20" src="<%= h.runeImg(match.subStyle) %>" alt="<%= h.runeAlt(match.subStyle) %>"><% } else { %><span class="ico s20"></span><% } %>
+      </div>
+      </div>
+      <div class="nm sm b u20"><%= h.cname(match.championName) %><% if (roleLabels[match.position]) { %><div class="xs mute u21"><%= roleLabels[match.position] %></div><% } %></div>
+    </div>
+
+    <div class="m-kda center">
+      <div class="big"><%= match.kills %> <span class="mute">/</span> <span class="lose"><%= match.deaths %></span> <span class="mute">/</span> <%= match.assists %></div>
+      <div class="xs"><span class="win num"><%= match.kda %></span> KDA</div>
+      <div class="xs mute">キル関与 <%= match.killParticipation %>%</div>
+    </div>
+
+    <div class="m-sc center">
+      <div class="m-score <%= scoreCls(match.score) %>"><%= match.score.toFixed(1) %></div>
+      <span class="badge <%= labelCls(match.label) %>"><%= match.label || match.rank + '位' %></span>
+      <div class="xs mute m-cs-in"><span>CS <%= match.cs %></span> <span>視界 <%= match.visionScore %></span></div>
+    </div>
+    <div class="m-cs xs mute"><div>CS <%= match.cs %></div><div>視界 <%= match.visionScore %></div></div>
+
+    <div class="m-items">
+      <% match.items.forEach(id => { %><% if (id) { %><img class="item" src="<%= h.itemImg(id) %>" alt="<%= h.itemAlt(id) %>" data-hide-on-error><% } else { %><span class="item"></span><% } %><% }) %>
+    </div>
+
+    <div class="m-mini">
+      <% for (let r = 0; r < 5; r++) { %>
+        <% [t0, t1].forEach(t => { const p = t && t.players[r]; %>
+          <% if (p) { %><div class="<%= p.isMe ? 'me' : '' %>"><img class="ico s16" src="<%= h.champImg(p.championName) %>" alt="" data-hide-on-error><%= short(p.name) %></div><% } else { %><div></div><% } %>
+        <% }) %>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="m-detail" id="m<%= i %>">
+    <div class="mt8"><button class="btn sm build-btn" data-match="<%= match.matchId %>" data-puuid="<%= account.puuid %>">ルーン・スキル・ビルドを読み込む</button><div class="mt8"></div></div>
+    <div class="mt8"><button class="btn sm tl-btn" data-match="<%= match.matchId %>" data-puuid="<%= account.puuid %>">タイムライン分析を読み込む</button><div class="mt8"></div></div>
+    <% match.teams.forEach(team => { %>
+      <div class="team">
+        <div class="flex between sm mb8">
+          <b class="<%= team.win ? 'win' : 'lose' %>"><%= team.win ? '勝利' : '敗北' %> ・ <%= tName(team.teamId) %></b>
+          <span class="mute"><%= team.kills %> / <%= team.deaths %> / <%= team.assists %> ・ ゴールド <%= num(team.gold) %></span>
+        </div>
+        <%- include('_comp', { comp: team.comp }) %>
+        <div class="scroll">
+          <table class="tbl sm">
+            <thead><tr><th scope="col">プレイヤー</th><th scope="col">スコア</th><th scope="col">KDA</th><th scope="col">ダメージ</th><th scope="col">ゴールド</th><th scope="col">CS</th><th scope="col">視界</th><th scope="col">アイテム</th></tr></thead>
+            <tbody>
+              <% team.players.forEach(p => { %>
+                <tr class="<%= p.isMe ? 'me' : '' %>">
+                  <td class="u22">
+                    <div class="flex aic g8">
+                      <img class="ico s32" src="<%= h.champImg(p.championName) %>" alt="" data-hide-on-error>
+                      <div>
+                        <% if (p.name) { %><a href="/summoner?riotId=<%= encodeURIComponent(p.name) %><%= rqs %>" class="<%= p.isMe ? 'b' : '' %>"><%= p.name %></a><% } else { %><span class="mute">非公開</span><% } %>
+                        <div class="xs mute"><%= h.cname(p.championName) %> Lv.<%= p.champLevel %><%= roleLabels[p.position] ? ' ・ ' + roleLabels[p.position] : '' %></div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="num b <%= scoreCls(p.score) %>"><%= p.score.toFixed(1) %></span> <% if (p.label) { %><span class="badge <%= labelCls(p.label) %>"><%= p.label %></span><% } %></td>
+                  <td><%= p.kills %>/<%= p.deaths %>/<%= p.assists %><div class="xs win"><%= p.kda %></div></td>
+                  <td><div class="num"><%= num(p.damage) %></div><div class="bar u23"><i data-style="width:<%= p.damagePct %>%"></i></div></td>
+                  <td class="num"><%= num(p.gold) %></td>
+                  <td class="num"><%= p.cs %></td>
+                  <td class="num"><%= p.visionScore %></td>
+                  <td class="u24"><% p.items.forEach(id => { %><% if (id) { %><img class="item sm" src="<%= h.itemImg(id) %>" alt="<%= h.itemAlt(id) %>" data-hide-on-error><% } else { %><span class="item sm"></span><% } %><% }) %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+</div>

@@ -1,0 +1,27 @@
+<%
+  const num = (n) => Number(n || 0).toLocaleString('ja-JP');
+  const date = (t) => t ? new Date(t).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '-';
+%>
+<div class="panel">
+  <div class="panel-h">チャンピオンマスタリー <span class="sub">スコア合計 <b class="num gold"><%= score === null ? '-' : num(score) %></b> ・ <%= list.length %> 体</span></div>
+  <% if (list.length === 0) { %><div class="empty">マスタリー情報を取得できませんでした。</div><% } else { %>
+    <input type="search" data-filter="#masteryRows tr" placeholder="チャンピオン名で絞り込み" class="mb12 u43">
+    <div class="scroll"><table class="tbl">
+      <thead><tr><th scope="col">#</th><th scope="col">チャンピオン</th><th scope="col">レベル</th><th scope="col">ポイント</th><th scope="col">次のレベルまで</th><th scope="col">最終プレイ</th></tr></thead>
+      <tbody id="masteryRows">
+        <% list.forEach((m, idx) => { const cid = h.champIdByKey(m.championId);
+           const span = (m.championPointsSinceLastLevel || 0) + (m.championPointsUntilNextLevel || 0);
+           const pct = span > 0 ? Math.round((m.championPointsSinceLastLevel || 0) / span * 100) : 100; %>
+          <tr>
+            <td class="num mute"><%= idx + 1 %></td>
+            <td><% if (cid) { %><a class="flex aic g8" href="/champion/<%= cid %>"><img class="ico s32" src="<%= h.champImg(cid) %>" alt="" data-hide-on-error><b><%= h.cname(cid) %></b></a><% } else { %>ID <%= m.championId %><% } %></td>
+            <td><span class="badge <%= m.championLevel >= 10 ? 'mvp' : m.championLevel >= 7 ? 'win' : '' %>">Lv.<%= m.championLevel %></span></td>
+            <td class="num"><%= num(m.championPoints) %></td>
+            <td class="u16"><% if (m.championPointsUntilNextLevel > 0) { %><div class="bar"><i data-style="width:<%= pct %>%"></i></div><div class="xs mute">あと <%= num(m.championPointsUntilNextLevel) %></div><% } else { %><span class="xs mute">達成済み</span><% } %></td>
+            <td class="sm mute"><%= date(m.lastPlayTime) %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table></div>
+  <% } %>
+</div>

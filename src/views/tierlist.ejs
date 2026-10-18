@@ -1,0 +1,95 @@
+<% const rqs = locals.rqs || ''; const rq = locals.rq || ''; %>
+<%
+  const href = (over) => {
+    const s = Object.assign({ queue: selected.queueId === 420 ? '' : selected.queueId, role: selected.role, band: selected.band === 'all' ? '' : selected.band, patch: patch }, over);
+    return '/tierlist?' + Object.entries(s).filter(([, v]) => v).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&') + rqs;
+  };
+  const TIER_CLS = { S: 'gold', A: 'win', B: '', C: 'mute' };
+  const deltaText = (d) => d === null ? '' : (d > 0 ? '▲' + d : d < 0 ? '▼' + Math.abs(d) : '±0');
+  const deltaCls = (d) => d === null ? 'mute' : d > 0 ? 'win' : d < 0 ? 'lose' : 'mute';
+%>
+<%- include('_head', { title: 'ティアリスト', active: 'tierlist' }) %>
+<div class="flex between aic wrapf g12 mb16">
+  <h2>ティアリスト</h2>
+  <div class="pills u32">
+    <a class="pill" href="/champions<%= rq %>">統計</a>
+    <a class="pill on" href="/tierlist<%= rq %>">ティアリスト</a>
+  </div>
+</div>
+
+<form method="get" action="/tierlist" class="panel mb16">
+  <input type="hidden" name="role" value="<%= selected.role || '' %>">
+  <div class="flex g12 wrapf aic">
+    <%- include('_region_select') %>
+    <select name="queue"><% queues.forEach(o => { %><option value="<%= o.id %>" <%= selected.queueId === o.id ? 'selected' : '' %>><%= o.label %></option><% }) %></select>
+    <select name="band"><% Object.entries(bandGroups).forEach(([k, g]) => { %><option value="<%= k === 'all' ? '' : k %>" <%= selected.band === k ? 'selected' : '' %>>帯: <%= g.label %></option><% }) %></select>
+    <select name="patch"><% patches.forEach(p => { %><option value="<%= p %>" <%= patch === p ? 'selected' : '' %>>パッチ <%= p %></option><% }) %></select>
+    <button class="btn primary">絞り込む</button>
+  </div>
+</form>
+
+<div class="pills">
+  <a class="pill <%= !selected.role ? 'on' : '' %>" href="<%= href({ role: '' }) %>">全ロール</a>
+  <% Object.entries(roleLabels).forEach(([k, label]) => { %><a class="pill <%= selected.role === k ? 'on' : '' %>" href="<%= href({ role: k }) %>"><%= label %></a><% }) %>
+</div>
+
+<% if (!patch || totalMatches === 0) { %>
+  <div class="panel empty">この条件（リージョン: <%= (locals.regions && locals.regions[locals.region]) ? locals.regions[locals.region].label : 'JP' %>）に当てはまる試合がまだ貯まっていません。クローラーを動かして試合を集めてください（<code>npm run start:all</code>）。クローラーが集めるリージョンは <code>.env</code> の <code>CRAWLER_REGION</code> で決まります。</div>
+<% } else { %>
+  <div class="note u13">パッチ <%= patch %> ・ 集計済み <%= totalMatches.toLocaleString('ja-JP') %> 試合 ・ <%= minGames %> 試合以上のチャンピオン <%= list.eligible %> 体を比較<%= prevPatch ? '（前パッチ ' + prevPatch + ' との差つき）' : '' %></div>
+
+  <% if (!list.reliable) { %>
+    <div class="alert warn">比べられるチャンピオンが少なすぎる（<%= list.eligible %> 体）ため、ティアは付けていません。試合が貯まるのを待つか、帯・ロールの絞り込みをゆるめてください。</div>
+  <% } %>
+
+  <% ['S', 'A', 'B', 'C'].forEach(t => { const rows = list.tiers[t]; if (!rows.length) return; %>
+    <div class="panel mb16">
+      <div class="panel-h"><span class="<%= TIER_CLS[t] %> u48"><%= t %></span> <span class="sub"><%= rows.length %> 体</span></div>
+      <div class="scroll"><table class="tbl">
+        <thead><tr><th scope="col">チャンピオン</th><th scope="col">補正勝率</th><th scope="col">勝率</th><th scope="col">ピック率</th><th scope="col">バン率</th><th scope="col">前パッチ比</th><th scope="col">試合数</th></tr></thead>
+        <tbody>
+          <% rows.forEach(r => { %>
+            <tr>
+              <td><a class="flex aic g12" href="/champion/<%= r.championName %><%= rq %>"><img class="ico s32" src="<%= h.champImg(r.championName) %>" alt="" loading="lazy" data-hide-on-error><b><%= h.cname(r.championName) %></b></a></td>
+              <td class="num b <%= r.adj >= 50 ? 'win' : 'lose' %>"><%= r.adj %>%</td>
+              <td class="num mute"><%= r.winRate %>%</td>
+              <td class="num"><%= r.pickRate %>%</td>
+              <td class="num"><%= r.banRate === null ? '-' : r.banRate + '%' %></td>
+              <td class="num <%= deltaCls(r.delta) %>"><%= r.delta === null ? '–' : deltaText(r.delta) %></td>
+              <td class="num mute"><%= r.games %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table></div>
+    </div>
+  <% }) %>
+
+  <% if (list.insufficient.length) { %>
+    <div class="panel mb16">
+      <div class="panel-h">データ不足 <span class="sub"><%= minGames %> 試合未満 ・ <%= list.insufficient.length %> 体</span></div>
+      <div class="flex wrapf g8">
+        <% list.insufficient.slice(0, 60).forEach(r => { %>
+          <a class="badge flex aic g4 u40" href="/champion/<%= r.championName %><%= rq %>"><img class="ico s24" src="<%= h.champImg(r.championName) %>" alt="" loading="lazy" data-hide-on-error><%= h.cname(r.championName) %> <span class="mute"><%= r.games %>試合</span></a>
+        <% }) %>
+      </div>
+    </div>
+  <% } %>
+
+  <div class="panel mb16">
+    <div class="panel-h">オブジェクトと勝率 <span class="sub">バン・オブジェクトの情報がある <%= objectives.matches.toLocaleString('ja-JP') %> 試合</span></div>
+    <% if (objectives.matches === 0) { %>
+      <div class="empty">まだ集計できる試合がありません（v5.2 以降に保存された試合から貯まります）。</div>
+    <% } else { %>
+      <table class="tbl"><thead><tr><th scope="col">条件を満たしたチーム</th><th scope="col">チーム数</th><th scope="col">そのチームの勝率</th></tr></thead><tbody>
+        <% objectives.items.forEach(o => { %><tr><td><%= o.label %></td><td class="num"><%= o.games.toLocaleString('ja-JP') %></td><td class="num b <%= o.winRate >= 50 ? 'win' : 'lose' %>"><%= o.games ? o.winRate + '%' : '-' %></td></tr><% }) %>
+      </tbody></table>
+      <div class="note">相関であって原因ではありません（勝っているチームほどオブジェクトを取りやすい）。</div>
+    <% } %>
+  </div>
+
+  <div class="note">
+    ティアは、<%= minGames %> 試合以上のチャンピオンの中での相対順位です（上位10%がS、35%までがA、75%までがB、残りがC）。補正勝率は「勝率50%の仮想試合を20回足した」値で、試合数が少ないチャンピオンの勝率が極端に出るのを抑えます。
+    標本はこのサイトのデータベースに貯まった試合だけで、OP.GG など全体の統計とは一致しません。「帯」はクローラーが試合を見つけた起点プレイヤーのランク帯による目安です。
+  </div>
+<% } %>
+<%- include('_foot') %>

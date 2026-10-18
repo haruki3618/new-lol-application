@@ -1,0 +1,12 @@
+<%- include('_head', { title: title || 'エラー', active: '' }) %>
+<div class="panel cut center u11">
+  <h2 class="mb12 u12"><%= title || 'エラーが発生しました' %></h2>
+  <p class="mute mb24" role="alert"><%= message %></p>
+  <% if (locals.retryAfterSec) { %><p class="sm mute mb16">あと約 <b class="num" data-countdown="<%= retryAfterSec %>"><%= retryAfterSec %></b> 秒ほどお待ちください。</p><% } %>
+  <% if (locals.errorId) { %><p class="sm mute mb16">エラー ID: <code><%= errorId %></code>（問い合わせの際にお伝えください）</p><% } %>
+  <div class="flex jc g8 wrapf">
+    <% if (locals.retryAfterSec || locals.retryable) { %><button type="button" class="btn" data-reload>もう一度試す</button><% } %>
+    <a class="btn primary" href="<%= backUrl || '/' %>"><%= backUrl && backUrl !== '/' ? '戦績に戻る' : 'トップに戻る' %></a>
+  </div>
+</div>
+<%- include('_foot') %>

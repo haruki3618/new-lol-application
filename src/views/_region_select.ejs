@@ -1,0 +1,5 @@
+<%
+  // リージョンの選択肢（ミドルウェアが res.locals.regions を渡す。テストなどで無いときは何も出さない）
+  const regs = locals.regions || {};
+  const cur = locals.pick || locals.formRegion || locals.region || 'jp';
+%><% if (Object.keys(regs).length) { %><select name="region" aria-label="リージョン" class="<%= locals.cls || '' %>"><% Object.entries(regs).forEach(([k, r]) => { %><option value="<%= k %>" <%= k === cur ? 'selected' : '' %>><%= r.label %></option><% }) %></select><% } %>

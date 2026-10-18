@@ -1,0 +1,20 @@
+<%- include('_head', { title: 'サーバー状況', active: 'status' }) %>
+<h2 class="mb4">サーバー状況</h2>
+<p class="sm mute mb16"><%= name %>（Riot 公式のステータス）</p>
+<form method="get" action="/status" class="flex g8 aic mb16"><%- include('_region_select') %><button class="btn">切り替え</button></form>
+<% const total = maintenances.length + incidents.length; %>
+<% if (total === 0) { %><div class="alert ok">現在、メンテナンスや障害は報告されていません。</div><% } %>
+<% [['メンテナンス', maintenances], ['障害', incidents]].forEach(([label, arr]) => { %>
+  <% if (arr.length) { %>
+    <div class="panel mb16"><div class="panel-h"><%= label %> <span class="sub"><%= arr.length %>件</span></div>
+      <% arr.forEach(m => { %>
+        <div class="mb16">
+          <div class="flex between aic g8"><b><%= m.title %></b><span class="badge <%= m.severity === 'critical' ? 'lose' : 'mvp' %>"><%= m.severity || m.status %></span></div>
+          <div class="xs mute"><%= m.created %></div>
+          <% m.updates.forEach(u => { %><div class="sm mute mt8">・<%= u %></div><% }) %>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+<% }) %>
+<%- include('_foot') %>

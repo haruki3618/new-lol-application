@@ -1,0 +1,44 @@
+# Render の Blueprint（New → Blueprint でこのリポジトリを選ぶと、この内容で作られます）。
+# 値が空（sync: false）の環境変数は、Render の画面で自分で入力します。
+services:
+  - type: web
+    name: lol-analytics
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: RIOT_API_KEY
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: DEFAULT_REGION
+        value: jp
+      - key: CRAWLER_REGION
+        value: jp
+      # 公開の許可（本番用キー）が下りるまでは、パスワードを入れてサイトを守る。公開するときに削除する
+      - key: SITE_PASSWORD
+        sync: false
+      # v6.5.1: お気に入り追跡の保護。WEBHOOK_SECRET（長いランダム文字列）で Webhook URL を暗号化して保存し、
+      # WATCH_REGISTER_KEY を設定すると、追跡の追加に登録キーが必要になる（公開サイトでの荒らし対策）
+      - key: WEBHOOK_SECRET
+        sync: false
+      - key: WATCH_REGISTER_KEY
+        sync: false
+      - key: STRICT_ENV
+        value: "1"
+      - key: TRUST_PROXY
+        value: "1"
+      # 無料プランはアクセスが無いと止まるので、サーバー内の巡回は使わない（自動更新は GitHub Actions が担当）
+      - key: WATCH_INTERVAL_MIN
+        value: "0"
+      - key: MAX_MATCHES
+        value: "20000"
+      # 容量の管理（v6.5）: 試合は30日で自動削除し、DB が 400MB を超えたら古い試合から削除する（Atlas 無料枠は 512MB）
+      - key: MATCH_TTL_DAYS
+        value: "30"
+      - key: MAX_DB_MB
+        value: "400"

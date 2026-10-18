@@ -1,0 +1,23 @@
+# 公開リポジトリは、60日間なにも更新が無いと定期実行（schedule）が自動で止まる。
+# 月に1回だけ空のコミットを作って、止まらないようにする。
+name: keepalive
+
+on:
+  schedule:
+    - cron: "41 3 1 * *" # 毎月1日（UTC）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 空のコミットを作る
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore: keepalive"
+          git push

@@ -1,0 +1,44 @@
+<%- include('_head', { title: 'お気に入り追跡', active: 'watch' }) %>
+<h2 class="mb16">お気に入り追跡 + Discord通知</h2>
+
+<% if (message) { %><div class="alert mb16"><%= message %></div><% } %>
+<% if (error) { %><div class="alert warn mb16"><%= error %></div><% } %>
+
+<div class="grid2 mb16">
+  <form method="post" action="/watch" class="panel">
+    <div class="b mb8">追跡に追加</div>
+    <div class="sm mute mb8">ソロランクの昇格・降格、LPの大きな変動、3連敗を Discord に通知します（約10分おきに確認）。</div>
+    <div class="mb8"><%- include('_region_select') %></div>
+    <input type="text" name="riotId" placeholder="ゲーム名#タグ" autocomplete="off" required class="mb8">
+    <input type="url" name="webhook" placeholder="https://discord.com/api/webhooks/…" autocomplete="off" required class="mb8">
+    <% if (needKey) { %><input type="password" name="registerKey" placeholder="登録キー" autocomplete="off" required class="mb8"><% } %>
+    <div class="xs mute mb12">Webhook URL は通知の送信と解除にだけ使い、画面には表示しません（保存時は暗号化されます）。Discord のチャンネル設定 → 連携サービス → ウェブフック で作成できます。</div>
+    <button class="btn primary">追加</button>
+  </form>
+  <form method="post" action="/watch/remove" class="panel">
+    <div class="b mb8">追跡を解除</div>
+    <div class="sm mute mb8">登録したときと同じ Riot ID と Webhook URL を入力してください。</div>
+    <input type="text" name="riotId" placeholder="ゲーム名#タグ" autocomplete="off" required class="mb8">
+    <input type="url" name="webhook" placeholder="https://discord.com/api/webhooks/…" autocomplete="off" required class="mb12">
+    <button class="btn">解除</button>
+  </form>
+</div>
+
+<div class="panel">
+  <div class="b mb8">追跡中のプレイヤー（<%= total %> / <%= max %>）</div>
+  <% if (!publicList) { %>
+    <div class="sm mute">プライバシー保護のため、追跡中のプレイヤー名は表示しません。</div>
+  <% } else if (items.length === 0) { %>
+    <div class="sm mute">まだ登録がありません。</div>
+  <% } else { %>
+    <% items.forEach(w => { %>
+      <div class="sm flex g12 mb4">
+        <a class="grow" href="/summoner?riotId=<%= encodeURIComponent(w.name) %><%= (w.region && w.region !== (locals.defaultRegion || 'jp')) ? '&region=' + w.region : '' %>"><%= w.name %></a>
+        <span class="badge"><%= (locals.regions && locals.regions[w.region]) ? w.region.toUpperCase() : (w.region || 'jp').toUpperCase() %></span>
+        <span><%= w.tier %></span>
+        <% if (w.consecutiveLosses >= 2) { %><span class="lose"><%= w.consecutiveLosses %>連敗中</span><% } %>
+      </div>
+    <% }) %>
+  <% } %>
+</div>
+<%- include('_foot') %>

@@ -1,0 +1,32 @@
+# データベースの容量の整理（無料）。1日1回、期限（TTL）の設定を反映し、容量の上限を超えていれば古い試合を削除する。
+# サーバー（Render 無料プラン）が止まっていても動く。必要な Secrets: MONGODB_URI
+name: storage
+
+on:
+  schedule:
+    - cron: "43 18 * * *" # UTC（日本時間の午前3:43）
+  workflow_dispatch:
+
+concurrency:
+  group: storage
+  cancel-in-progress: false
+
+jobs:
+  storage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 容量を整理
+        run: npm run storage -- --apply
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          STRICT_ENV: "1"
+          MATCH_TTL_DAYS: ${{ vars.MATCH_TTL_DAYS || '30' }}
+          MAX_MATCHES: ${{ vars.MAX_MATCHES || '20000' }}
+          MAX_DB_MB: ${{ vars.MAX_DB_MB || '400' }}

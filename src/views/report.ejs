@@ -1,0 +1,71 @@
+<% const rqs = locals.rqs || ''; %>
+<%- include('_head', { title: title, active: '' }) %>
+<%
+  const c = report.current;
+  const fmtDate = (ms) => new Date(ms + 9 * 3600 * 1000).toISOString().slice(5, 10).replace('-', '/');
+  const maxDay = Math.max(1, ...report.daily.map((d) => d.games));
+  const sign = (n) => (n > 0 ? '+' + n : String(n));
+  const qs = (p, q) => `/report?riotId=${encodeURIComponent(riotId)}&period=${p}&queue=${q === null ? 'all' : q}${rqs}`;
+%>
+<h2 class="mb16"><%= report.label %>パフォーマンスレポート <span class="sub"><a href="/summoner?riotId=<%= encodeURIComponent(riotId) %><%= rqs %>"><%= riotId %></a></span></h2>
+<%- include('_retention') %>
+
+<div class="panel mb16">
+  <div class="flex g8 wrapf aic">
+    <% [['week', '週間（7日）'], ['month', '月間（30日）']].forEach(p => { %><a class="btn <%= period === p[0] ? 'primary' : '' %>" href="<%= qs(p[0], queueId) %>"><%= p[1] %></a><% }) %>
+    <span class="grow"></span>
+    <% [[null, 'すべて']].concat(queues.map(q => [q.id, q.label])).forEach(q => { %><a class="btn <%= queueId === q[0] ? 'primary' : '' %>" href="<%= qs(period, q[0]) %>"><%= q[1] %></a><% }) %>
+  </div>
+  <div class="xs mute mt8"><%= fmtDate(report.from) %> 〜 <%= fmtDate(report.to) %>（JST）・ 保存済みの試合から集計しています。</div>
+</div>
+
+<% if (c.games === 0) { %>
+  <div class="panel empty">この期間に保存されている試合がありません。プロフィールで戦績を更新するか、「すべて」を選んでみてください。</div>
+<% } else { %>
+  <div class="grid2 mb16">
+    <div class="panel">
+      <div class="xs mute mb4">勝敗</div>
+      <div class="lg"><b><%= c.wins %>勝<%= c.losses %>敗</b> <span class="num b <%= c.winRate >= 50 ? 'win' : 'lose' %>"><%= c.winRate %>%</span></div>
+      <% if (report.delta) { %><div class="sm mute mt8">前の<%= report.days %>日と比べて 勝率 <span class="num <%= report.delta.winRate >= 0 ? 'win' : 'lose' %>"><%= sign(report.delta.winRate) %>pt</span>（<%= report.previous.games %>戦）</div>
+      <% } else { %><div class="sm mute mt8">前の期間のデータが無いため、比較はありません。</div><% } %>
+    </div>
+    <div class="panel">
+      <div class="xs mute mb4">KDA・プレイ内容</div>
+      <div class="lg"><span class="num b"><%= c.kda %></span> <span class="sm mute"><%= c.avgKills %> / <%= c.avgDeaths %> / <%= c.avgAssists %></span></div>
+      <div class="sm mute mt8">CS <%= c.csPerMin %>/分 ・ 視界 <%= c.visionPerMin %>/分 ・ プレイ時間 <%= c.hours %> 時間（<%= c.games %>戦）</div>
+      <% if (report.delta) { %><div class="sm mute">CS/分 の変化 <span class="num"><%= sign(report.delta.csPerMin) %></span></div><% } %>
+    </div>
+  </div>
+
+  <div class="panel mb16">
+    <div class="b mb8">LPの推移</div>
+    <% if (report.lp) { %>
+      <div class="sm">期間中のLP <span class="num b <%= report.lp.diff >= 0 ? 'win' : 'lose' %>"><%= sign(report.lp.diff) %></span>（記録 <%= report.lp.points %> 件。ティアをまたぐ場合も通算の差です）</div>
+    <% } else { %>
+      <div class="sm mute">この期間のLP記録が2件未満です。プロフィールを開くたびに記録されるので、しばらく使うとここに表示されます。</div>
+    <% } %>
+  </div>
+
+  <div class="panel mb16">
+    <div class="b mb8">日別の試合数</div>
+    <div class="flex g4 u50">
+      <% report.daily.forEach(d => { %>
+        <div class="grow" title="<%= fmtDate(d.dayStart) %>: <%= d.games %>戦 <%= d.wins %>勝" data-style="background:<%= d.games ? (d.wins * 2 >= d.games ? '#38bdf8' : '#f87171') : 'rgba(148,163,184,.25)' %>;height:<%= d.games ? Math.max(6, Math.round(d.games / maxDay * 90)) : 3 %>px;border-radius:2px"></div>
+      <% }) %>
+    </div>
+    <div class="xs mute mt4">青: 勝ち越し ・ 赤: 負け越し ・ 灰: 試合なし</div>
+  </div>
+
+  <div class="panel mb16">
+    <div class="b mb8">よく使ったチャンピオン</div>
+    <% report.champions.forEach(ch => { %>
+      <div class="sm flex aic g8 mb4">
+        <img class="ico s24" src="<%= h.champImg(ch.championName) %>" alt="" data-hide-on-error><span class="grow"><%= h.cname(ch.championName) %></span>
+        <span><%= ch.games %>戦 <%= ch.wins %>勝</span><span class="num">KDA <%= ch.kda %></span><span class="num b <%= ch.winRate >= 50 ? 'win' : 'lose' %>"><%= ch.winRate %>%</span>
+      </div>
+    <% }) %>
+    <% if (report.best) { %><div class="sm mt8">得意: <b><%= h.cname(report.best.championName) %></b>（<%= report.best.winRate %>% / <%= report.best.games %>戦）<% if (report.worst) { %> ・ 苦戦: <b><%= h.cname(report.worst.championName) %></b>（<%= report.worst.winRate %>% / <%= report.worst.games %>戦）<% } %></div>
+    <div class="xs mute">3戦以上したチャンピオンだけで判定しています。</div><% } %>
+  </div>
+<% } %>
+<%- include('_foot') %>

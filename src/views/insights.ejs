@@ -1,0 +1,226 @@
+<%
+  // v6.11.0: プレイ内容・週ごとの推移・タイムライン集計（渡されなければ出さない）
+  const perf = locals.perf || null;
+  const weeks = locals.weeks || [];
+  const tl = locals.tl || null;
+  const tlNote = locals.tlNote || null;
+  const fx = (n, d) => (n === null || n === undefined ? '-' : Number(n).toFixed(d));
+  const lvClass = (lv) => (lv === 'warn' ? 'alert warn' : '');
+  const lvMark = (lv) => (lv === 'good' ? '✓' : lv === 'warn' ? '!' : '・');
+  const lvColor = (lv) => (lv === 'good' ? 'win' : lv === 'warn' ? 'lose' : 'mute');
+  const jst = (t) => (t ? new Date(t + 9 * 3600 * 1000).toISOString().slice(0, 10) : '');
+  const verdict = (b) => {
+    if (b.games === 0) return '<span class="mute">-</span>';
+    if (b.few) return '<span class="mute">試合数が少ない</span>';
+    if (!b.enough) return '<span class="mute">比較には不足</span>';
+    if (b.significant) return '<span class="b ' + (b.diffPt > 0 ? 'win' : 'lose') + '">差あり（目安）</span>';
+    return '<span class="mute">大きな差なし</span>';
+  };
+  const diffCell = (b) => (b.diffPt === null || b.games === 0 ? '<span class="mute">-</span>' : '<span class="' + (b.diffPt > 0 ? 'win' : b.diffPt < 0 ? 'lose' : 'mute') + '">' + (b.diffPt > 0 ? '+' : '') + b.diffPt + 'pt</span>');
+  // 区分の表（label は固定の文字列）
+  const bucketTable = (rows) => '<div class="scroll"><table class="tbl"><thead><tr><th scope="col">区分</th><th scope="col">試合数</th><th scope="col">勝率</th><th scope="col">95%の幅</th><th scope="col">それ以外との差</th><th scope="col">判定</th></tr></thead><tbody>'
+    + rows.map((b) => '<tr><td>' + b.label + '</td><td class="num">' + b.games + '</td><td class="num b ' + (b.games && b.winRate >= 50 ? 'win' : b.games ? 'lose' : 'mute') + '">' + (b.games ? b.winRate + '%' : '-') + '</td><td class="num mute">' + (b.games ? b.ci.lo + '〜' + b.ci.hi + '%' : '-') + '</td><td class="num">' + diffCell(b) + '</td><td>' + verdict(b) + '</td></tr>').join('')
+    + '</tbody></table></div>';
+%>
+<%- include('_head', { title: 'プレイ傾向の診断', active: '' }) %>
+<div class="flex between aic wrapf g12 mb16">
+  <h2>プレイ傾向の診断<% if (name) { %> <span class="sub"><%= name %></span><% } %></h2>
+</div>
+<%- include('_retention') %>
+
+<form method="get" action="/insights/<%= puuid %>" class="panel mb16">
+  <div class="flex g12 wrapf aic">
+    <select name="queue">
+      <% queues.forEach(o => { %><option value="<%= o.id %>" <%= queueId === o.id ? 'selected' : '' %>><%= o.label %></option><% }) %>
+      <option value="all" <%= queueId === null ? 'selected' : '' %>>すべてのキュー</option>
+    </select>
+    <button class="btn primary">切り替える</button>
+    <span class="xs mute">保存済みの試合だけで計算します（API は使いません）</span>
+  </div>
+</form>
+
+<% if (r.total.games === 0) { %>
+  <div class="panel empty">このキューの試合がまだ保存されていません。プロフィールで試合を読み込んでから開いてください。</div>
+<% } else { %>
+  <div class="note u13">
+    対象 <%= r.total.games %> 試合（勝率 <%= r.total.winRate %>%）・ <%= jst(r.from) %> 〜 <%= jst(r.to) %> ・ <%= r.sessions %> 回のセッション<%= capped ? '（新しい順に最大 ' + loaded + ' 試合まで）' : '' %>
+  </div>
+
+  <% if (!r.reliable) { %>
+    <div class="alert warn">試合数が少ない（<%= r.total.games %> 試合、診断には <%= r.minTotal %> 試合以上必要）ため、傾向の判定はしていません。プロフィールの「過去の試合を読み込む」で試合を増やしてから開いてください。下の表は参考の数字です。</div>
+  <% } %>
+
+  <div class="panel mb16">
+    <div class="panel-h">気づいたこと <span class="sub">はっきり差があるものだけ</span></div>
+    <% if (!r.reliable) { %>
+      <div class="empty">試合数が足りないため表示しません。</div>
+    <% } else if (r.findings.length === 0) { %>
+      <div class="empty">目立った傾向は見つかりませんでした。連敗後や時間帯などで、勝率に大きな偏りはありません（偏りが無いこと自体も結果です）。</div>
+    <% } else { %>
+      <% r.findings.forEach(f => { %>
+        <div class="<%= f.level === 'warn' ? 'alert warn' : '' %> u14">
+          <span class="<%= f.level === 'good' ? 'win' : f.level === 'warn' ? 'lose' : 'mute' %> b"><%= f.level === 'good' ? '✓' : f.level === 'warn' ? '!' : '・' %></span>
+          <%= f.text %>
+        </div>
+      <% }) %>
+    <% } %>
+  </div>
+
+  <div class="panel mb16">
+    <div class="panel-h">連敗後の勝率 <span class="sub">同じセッション内（前の試合の終了から <%= r.opts.sessionGapMin %> 分以内）</span></div>
+    <%- bucketTable(r.streak.concat([r.streakLossMulti])) %>
+  </div>
+
+  <div class="panel mb16">
+    <div class="panel-h">時間帯別の勝率 <span class="sub">日本時間・試合の開始時刻</span></div>
+    <%- bucketTable(r.hours) %>
+  </div>
+
+  <div class="panel mb16">
+    <div class="panel-h">その日の何試合目か <span class="sub">セッションの開始から数えた順番</span></div>
+    <%- bucketTable(r.sessionIndex.concat([r.sessionLate])) %>
+  </div>
+
+  <div class="panel mb16">
+    <div class="panel-h">チャンピオンプール <span class="sub"><%= r.pool.unique %> 体 ・ 試合の半分は <%= r.pool.halfCount %> 体 ・ 上位3体で <%= r.pool.top3Share %>%</span></div>
+    <div class="scroll"><table class="tbl">
+      <thead><tr><th scope="col">チャンピオン</th><th scope="col">試合数</th><th scope="col">使用率</th><th scope="col">勝率</th><th scope="col">95%の幅</th></tr></thead>
+      <tbody>
+        <% r.pool.top.forEach(c => { %>
+          <tr>
+            <td><a class="flex aic g12" href="/champion/<%= c.name %>"><img class="ico s32" src="<%= h.champImg(c.name) %>" alt="" loading="lazy" data-hide-on-error><b><%= h.cname(c.name) %></b></a></td>
+            <td class="num"><%= c.games %></td>
+            <td class="num mute"><%= Math.round(c.games / r.total.games * 1000) / 10 %>%</td>
+            <td class="num b <%= c.winRate >= 50 ? 'win' : 'lose' %>"><%= c.winRate %>%</td>
+            <td class="num mute"><%= c.ci.lo %>〜<%= c.ci.hi %>%</td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table></div>
+    <% if (r.pool.singles > 0) { %><div class="note">1試合だけ使ったチャンピオンが <%= r.pool.singles %> 体あります（表には出していません）。</div><% } %>
+    <% if (r.roles.length) { %>
+      <div class="flex wrapf g8 u15">
+        <% r.roles.forEach(x => { %><span class="badge"><%= roleLabels[x.role] || x.role %> <b><%= x.share %>%</b> <span class="mute"><%= x.games %>試合・勝率<%= x.winRate %>%</span></span><% }) %>
+      </div>
+    <% } %>
+  </div>
+
+  <% if (perf && perf.n > 0) { %>
+    <div class="panel mb16">
+      <div class="panel-h">プレイ内容 <span class="sub">勝った試合と負けた試合の平均（リメイクを除く <%= perf.n %> 試合）</span></div>
+      <div class="scroll"><table class="tbl">
+        <thead><tr><th scope="col">区分</th><th scope="col">試合数</th><th scope="col">キル</th><th scope="col">デス</th><th scope="col">アシスト</th><th scope="col">KDA</th><th scope="col">CS/分</th><th scope="col">視界/分</th><th scope="col">ダメージ/分</th></tr></thead>
+        <tbody>
+          <% [['全体', perf.all], ['勝ち', perf.wins], ['負け', perf.losses]].filter((x) => x[1]).forEach((x) => { const s = x[1]; %>
+            <tr>
+              <td><b><%= x[0] %></b></td><td class="num"><%= s.n %></td>
+              <td class="num"><%= fx(s.kills, 1) %></td><td class="num"><%= fx(s.deaths, 1) %></td><td class="num"><%= fx(s.assists, 1) %></td>
+              <td class="num b"><%= fx(s.kda, 2) %></td><td class="num"><%= fx(s.csMin, 1) %></td><td class="num"><%= fx(s.visMin, 2) %></td><td class="num"><%= s.dmgMin === null ? '-' : Number(s.dmgMin).toLocaleString('ja-JP') %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table></div>
+      <% if (!perf.reliable) { %>
+        <div class="note">試合数が少ない（<%= perf.minTotal %> 試合未満）ため、変化や偏りの判定はしていません。上の数字は参考です。</div>
+      <% } else if (perf.findings.length === 0) { %>
+        <div class="note">直近の変化やデスの偏りで、はっきり差のあるものは見つかりませんでした。</div>
+      <% } else { %>
+        <% perf.findings.forEach((f) => { %>
+          <div class="<%= lvClass(f.level) %> u14"><span class="<%= lvColor(f.level) %> b"><%= lvMark(f.level) %></span> <%= f.text %></div>
+        <% }) %>
+      <% } %>
+    </div>
+
+    <% if (perf.trend.ready) { %>
+      <div class="panel mb16">
+        <div class="panel-h">直近の変化 <span class="sub">直近 <%= perf.trend.recentN %> 試合 と それ以前の <%= perf.trend.earlierN %> 試合</span></div>
+        <div class="scroll"><table class="tbl">
+          <thead><tr><th scope="col">指標</th><th scope="col">直近</th><th scope="col">それ以前</th><th scope="col">変化</th><th scope="col">判定</th></tr></thead>
+          <tbody>
+            <% perf.trend.rows.forEach((t) => { const good = (t.recent - t.earlier) * t.better > 0; %>
+              <tr>
+                <td><%= t.label %></td><td class="num"><%= fx(t.recent, t.digits) %></td><td class="num mute"><%= fx(t.earlier, t.digits) %></td>
+                <td class="num <%= t.rel === 0 ? 'mute' : good ? 'win' : 'lose' %>"><%= t.rel > 0 ? '+' : '' %><%= t.rel %>%</td>
+                <td><% if (t.significant) { %><span class="b <%= good ? 'win' : 'lose' %>">差あり（目安）</span><% } else { %><span class="mute">大きな差なし</span><% } %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table></div>
+      </div>
+    <% } %>
+
+    <div class="panel mb16">
+      <div class="panel-h">デス数別の勝率</div>
+      <div class="scroll"><table class="tbl">
+        <thead><tr><th scope="col">区分</th><th scope="col">試合数</th><th scope="col">勝率</th></tr></thead>
+        <tbody>
+          <% perf.deathBands.forEach((b) => { %>
+            <tr><td><%= b.label %></td><td class="num"><%= b.games %></td><td class="num b <%= b.games && b.winRate >= 50 ? 'win' : b.games ? 'lose' : 'mute' %>"><%= b.games ? b.winRate + '%' : '-' %></td></tr>
+          <% }) %>
+        </tbody>
+      </table></div>
+    </div>
+  <% } %>
+
+  <% if (tl) { %>
+    <div class="panel mb16" id="timeline">
+      <div class="panel-h">タイムライン集計 <span class="sub">直近 <%= tl.requested %> 試合のうち、タイムラインがある <%= tl.analyzed %> 試合</span></div>
+      <% if (tlNote && tlNote.asked) { %>
+        <div class="note"><%= tlNote.fetched %> 試合ぶんを取得しました<%= tlNote.failed ? '（' + tlNote.failed + ' 試合は取得できませんでした。古い試合や混雑の可能性があります）' : '' %>。</div>
+      <% } %>
+      <% if (tl.analyzed === 0) { %>
+        <div class="empty">まだタイムラインを取得した試合がありません。プロフィールで試合を開いて「タイムライン分析」を押すか、下のボタンでまとめて取得できます。</div>
+      <% } else { %>
+        <div class="scroll"><table class="tbl">
+          <thead><tr><th scope="col">時点</th><th scope="col">試合数</th><th scope="col">CS差（相手比）</th><th scope="col">ゴールド差（相手比）</th><th scope="col">チームのゴールド差</th></tr></thead>
+          <tbody>
+            <% tl.checkpoints.forEach((c) => { const sg = (n) => (n === null ? '-' : (n > 0 ? '+' : '') + Number(n).toLocaleString('ja-JP')); %>
+              <tr><td><%= c.min %> 分</td><td class="num"><%= c.n %></td><td class="num"><%= sg(c.csDiff) %></td><td class="num"><%= sg(c.goldDiff) %></td><td class="num"><%= sg(c.teamDiff) %></td></tr>
+            <% }) %>
+          </tbody>
+        </table></div>
+        <% if (tl.findings.length) { %>
+          <% tl.findings.forEach((f) => { %>
+            <div class="<%= lvClass(f.level) %> u14"><span class="<%= lvColor(f.level) %> b"><%= lvMark(f.level) %></span> <%= f.text %></div>
+          <% }) %>
+        <% } else { %>
+          <div class="note">取得済みの試合が少ない（各項目 5 試合未満）ため、所見は出していません。</div>
+        <% } %>
+      <% } %>
+      <% if (tl.missing > 0) { %>
+        <form method="post" action="/insights/<%= puuid %>/timeline" class="flex g12 wrapf aic u14">
+          <input type="hidden" name="queue" value="<%= queueId === null ? 'all' : queueId %>">
+          <button class="btn sm">足りない試合のタイムラインを取得（最大 5 試合）</button>
+          <span class="xs mute">タイムラインが未取得の試合が <%= tl.missing %> 試合あります。1 試合につき Riot API を 1 回使います（1 時間に 12 回まで）。</span>
+        </form>
+      <% } %>
+    </div>
+  <% } %>
+
+  <div class="note">
+    <b>見方の注意</b>：「差あり（目安）」は、その区分とそれ以外の試合の勝率に、偶然とは言いにくい差（両側 95% 水準、かつ <%= r.opts.minDiffPt %> ポイント以上、どちらも <%= r.opts.minBucket %> 試合以上）があるときだけ付けます。
+    たくさんの区分を同時に調べているため、偶然の差が混ざることがあります。相関であって原因ではありません（連敗したから負けるのか、調子が悪い日に連敗するのかは分かりません）。
+    保存されている試合が連続していない場合（一部の試合だけを読み込んだ場合など）は、連敗やセッションの数え方がずれます。リメイク（<%= Math.round(r.opts.remakeSec / 60) %> 分未満）は除いています。
+  </div>
+<% } %>
+
+<% if (weeks.length) { %>
+  <div class="panel mb16">
+    <div class="panel-h">週ごとの推移 <span class="sub">日本時間の月曜はじまり・最大 26 週</span></div>
+    <div class="scroll"><table class="tbl">
+      <thead><tr><th scope="col">週（月曜）</th><th scope="col">試合数</th><th scope="col">勝率</th><th scope="col">KDA</th><th scope="col">CS/分</th><th scope="col">視界/分</th><th scope="col">よく使ったチャンピオン</th></tr></thead>
+      <tbody>
+        <% weeks.forEach((w) => { %>
+          <tr>
+            <td><%= w.label %></td><td class="num"><%= w.games %></td>
+            <td class="num b <%= w.winRate >= 50 ? 'win' : 'lose' %>"><%= w.winRate %>%</td>
+            <td class="num"><%= fx(w.kda, 2) %></td><td class="num"><%= fx(w.csMin, 1) %></td><td class="num"><%= fx(w.visMin, 2) %></td>
+            <td><%= w.champs.map((c) => h.cname(c.name)).join('・') %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table></div>
+    <div class="note">試合そのものが期限で削除されたあとも、この週ごとの合計は長く残ります（保持期間は <code>PLAYER_WEEK_TTL_DAYS</code>、既定 365 日）。プロフィールか、この画面を開いたときに更新されます。開かなかった間に消えた試合は、ここにも入りません。</div>
+  </div>
+<% } %>
+<%- include('_foot') %>

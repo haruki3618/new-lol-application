@@ -1,0 +1,224 @@
+<%
+  const rqs = locals.rqs || ''; const rq = locals.rq || '';
+  const rateCls = (r) => r >= 50 ? 'win' : 'lose';
+  const ver = h.version;
+  const S = info && info.stats;
+  const shard = locals.shardLabel || ((id) => id);
+  const params = (over) => {
+    const o = Object.assign({ queue: selected.queueId, patch: selected.patch, band: selected.band === 'all' ? '' : selected.band, min: selected.min === 5 ? '' : selected.min, role: selected.role || 'all', sort: selected.sort === 'games' ? '' : selected.sort }, over);
+    return Object.entries(o).filter(([, v]) => v).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+  };
+  const pageUrl = (over) => '/champion/' + name + '?' + params(over) + rqs;
+  const linkTo = (id) => '/champion/' + id + '?' + params({ role: '', sort: '' }) + rqs;
+  const vsUrl = (opp) => '/matchup?champ=' + name + '&vs=' + opp + '&' + params({ role: selected.role || 'all', sort: '' }) + rqs;
+  const runeIcon = (id, size) => h.runeImg(id) ? '<img class="ico ' + size + '" src="' + h.runeImg(id) + '" alt="' + h.runeAlt(id) + '">' : '';
+  const tag = (x) => x.recommended ? '<span class="badge rec">★おすすめ</span>' : (x.few ? '<span class="badge few">参考</span>' : '');
+  const ci = (x) => x.ci.lo + '〜' + x.ci.hi + '%';
+  const verdictLabel = { good: '有利', bad: '不利', even: '互角', few: '参考' };
+  const regionLabel = (locals.regions && locals.regions[locals.region]) ? locals.regions[locals.region].label : '';
+%>
+<%- include('_head', { title: h.cname(name), active: 'champions' }) %>
+<div class="banner">
+  <div class="bg" data-style="background-image:url('https://ddragon.leagueoflegends.com/cdn/img/champion/splash/<%= name %>_0.jpg')"></div>
+  <div class="in">
+    <img class="ico s64 u28" src="<%= h.champImg(name) %>" alt="" data-hide-on-error>
+    <div class="grow">
+      <h1 class="title-xl"><%= h.cname(name) %></h1>
+      <div class="mute"><%= info ? info.title : '' %></div>
+      <% if (info) { %><div class="flex g8 mt8 wrapf"><% info.tags.forEach(t => { %><span class="badge"><%= tagLabels[t] || t %></span><% }) %><span class="badge"><%= info.resource %></span></div><% } %>
+    </div>
+  </div>
+</div>
+
+<form method="get" class="panel champ-filter mb16" aria-label="集計の絞り込み">
+  <input type="hidden" name="role" value="<%= selected.role || 'all' %>">
+  <div class="flex g8 wrapf aic">
+    <%- include('_region_select') %>
+    <select name="queue"><option value="">すべてのモード</option><% queues.forEach(o => { %><option value="<%= o.id %>" <%= selected.queueId === o.id ? 'selected' : '' %>><%= o.label %></option><% }) %></select>
+    <select name="band"><% Object.entries(bandGroups).forEach(([k, g]) => { %><option value="<%= k === 'all' ? '' : k %>" <%= selected.band === k ? 'selected' : '' %>>帯: <%= g.label %></option><% }) %></select>
+    <select name="patch"><option value="">全パッチ</option><% patches.forEach(p => { %><option value="<%= p %>" <%= selected.patch === p ? 'selected' : '' %>><%= p %></option><% }) %></select>
+    <select name="min"><% minOptions.forEach(m => { %><option value="<%= m %>" <%= selected.min === m ? 'selected' : '' %>>最低 <%= m %> 試合</option><% }) %></select>
+    <button class="btn primary">絞り込む</button>
+  </div>
+</form>
+
+<% if (detail) { %>
+  <div class="panel cut mb16">
+    <div class="flex g24 wrapf">
+      <div class="statcell"><div class="k">試合数</div><div class="v"><%= detail.games %></div></div>
+      <div class="statcell"><div class="k">ピック率</div><div class="v"><%= detail.pickRate %>%</div></div>
+      <div class="statcell"><div class="k">勝率</div><div class="v <%= rateCls(detail.winRate) %>"><%= detail.winRate %>%</div></div>
+      <div class="statcell"><div class="k">KDA</div><div class="v win"><%= detail.kda %></div></div>
+      <div class="statcell"><div class="k">平均 K / D / A</div><div class="v"><%= detail.avgKills %> / <%= detail.avgDeaths %> / <%= detail.avgAssists %></div></div>
+    </div>
+    <div class="note u29"><%= regionLabel %> の保存済み <%= detail.totalMatches %> 試合からの集計です。試合数が少ないと数字は大きくぶれます。</div>
+  </div>
+
+  <div class="pills">
+    <% if (roles.length === 0) { %><a class="pill on" href="<%= pageUrl({ role: 'all' }) %>">すべて</a><% } %>
+    <% roles.forEach(r => { %><a class="pill <%= selected.role === r.role ? 'on' : '' %>" href="<%= pageUrl({ role: r.role }) %>"><%= roleLabels[r.role] || r.role %> <span class="xs">(<%= r.games %>試合・<%= r.share %>%)</span></a><% }) %>
+    <% if (roles.length > 1) { %><a class="pill <%= !selected.role ? 'on' : '' %>" href="<%= pageUrl({ role: 'all' }) %>">全ロール</a><% } %>
+  </div>
+
+  <h2 class="mb8">おすすめビルド <span class="sub sm mute"><%= selected.role ? (roleLabels[selected.role] || selected.role) : '全ロール' %> ・ <%= report.games %> 試合 ・ 勝率 <span class="<%= rateCls(report.winRate) %>"><%= report.winRate %>%</span></span></h2>
+  <% if (!report.enough) { %>
+    <div class="alert warn mb16">この条件の試合が <%= report.games %> 試合しかありません（最低 <%= report.minGames %> 試合）。下の数字は参考程度に見てください。クローラーで試合を貯めるか、絞り込みをゆるめてください。</div>
+  <% } %>
+  <div class="note u13">並び順は、勝率の95%区間の下限（試合数が少ない勝率を割り引いた値）です。最低 <%= report.minGames %> 試合に届かないものは「参考」として後ろに並び、おすすめにはしません。アイテムは試合終了時の持ち物で、購入順やスキル順は含みません（それは各試合の「ルーン・スキル・ビルド」で見られます）。<% if (capped) { %>新しい <%= scanned %> 試合までを読んでいます。<% } %></div>
+
+  <div class="grid2 mb16">
+    <div class="panel"><div class="panel-h">ルーン</div>
+      <% if (report.runePages.length) { %>
+        <% report.runePages.forEach(pg => { %>
+          <div class="mb16">
+            <div class="runes mb4">
+              <%- runeIcon(pg.primaryStyle, 's24') %>
+              <% pg.runes.slice(0, 4).forEach((id, i) => { %><%- runeIcon(id, i === 0 ? 's40' : 's28') %><% }) %>
+              <span class="sep"></span>
+              <%- runeIcon(pg.subStyle, 's24') %>
+              <% pg.runes.slice(4, 6).forEach(id => { %><%- runeIcon(id, 's28') %><% }) %>
+              <span class="sep"></span>
+              <% pg.runes.slice(6, 9).forEach(id => { %><span class="shard"><%= shard(id) %></span><% }) %>
+            </div>
+            <div class="sm"><%- tag(pg) %> <span class="mute"><%= pg.games %>試合 ・ ピック率 <%= pg.pickRate %>% ・</span> <span class="num b <%= rateCls(pg.winRate) %>"><%= pg.winRate %>%</span> <span class="xs mute">(<%= ci(pg) %>)</span></div>
+          </div>
+        <% }) %>
+        <div class="xs mute">ルーンページ全体を記録しているのは v6.4 以降に保存した試合だけです（この条件では <%= report.runeCoverage.withPages %> / <%= report.runeCoverage.total %> 試合）。</div>
+      <% } else { %>
+        <% report.keystones.forEach(k => { %>
+          <div class="flex aic g12 mb12"><%- runeIcon(k.id, 's40') %><span><%- tag(k) %></span><span class="sm ml-auto"><%= k.games %>試合 ・ <span class="num b <%= rateCls(k.winRate) %>"><%= k.winRate %>%</span></span></div>
+        <% }) %>
+        <% if (report.keystones.length === 0) { %><div class="empty">データがありません。</div><% } else { %><div class="xs mute">ルーンページ全体の記録がある試合がまだありません（キーストーンのみ表示）。新しく保存された試合から貯まります。</div><% } %>
+      <% } %>
+    </div>
+
+    <div class="panel"><div class="panel-h">キーストーンとサブ系統</div>
+      <% report.keystones.forEach(k => { %>
+        <div class="flex aic g12 mb12">
+          <%- runeIcon(k.id, 's32') %>
+          <div class="grow">
+            <div class="sm"><%- tag(k) %> <span class="mute"><%= k.games %>試合 ・ ピック率 <%= k.pickRate %>% ・</span> <span class="num b <%= rateCls(k.winRate) %>"><%= k.winRate %>%</span> <span class="xs mute">(<%= ci(k) %>)</span></div>
+            <% if (k.subs.length) { %><div class="flex aic g8 mt8 xs mute">サブ: <% k.subs.forEach(sb => { %><%- runeIcon(sb.id, 's20') %><span><%= sb.games %>試合 <span class="<%= rateCls(sb.winRate) %>"><%= sb.winRate %>%</span></span><% }) %></div><% } %>
+          </div>
+        </div>
+      <% }) %>
+      <% if (report.keystones.length === 0) { %><div class="empty">データがありません。</div><% } %>
+    </div>
+  </div>
+
+  <div class="grid2 mb16">
+    <div class="panel"><div class="panel-h">サモナースペル</div>
+      <% report.spells.forEach(sp => { %>
+        <div class="flex aic g8 mb12"><% sp.ids.forEach(id => { %><% if (h.spellImg(id)) { %><img class="ico sq s32" src="<%= h.spellImg(id) %>" alt="<%= h.spellAlt(id) %>"><% } %><% }) %><span><%- tag(sp) %></span><span class="sm ml-auto"><%= sp.games %>試合 ・ <span class="num b <%= rateCls(sp.winRate) %>"><%= sp.winRate %>%</span></span></div>
+      <% }) %>
+      <% if (report.spells.length === 0) { %><div class="empty">データがありません。</div><% } %>
+    </div>
+    <div class="panel"><div class="panel-h">ブーツ</div>
+      <% report.boots.forEach(b => { %>
+        <div class="flex aic g8 mb12"><img class="ico sq s32" src="<%= h.itemImg(b.id) %>" alt="<%= h.itemAlt(b.id) %>" data-hide-on-error><span><%- tag(b) %></span><span class="sm ml-auto"><%= b.games %>試合 ・ <span class="num b <%= rateCls(b.winRate) %>"><%= b.winRate %>%</span></span></div>
+      <% }) %>
+      <% if (report.boots.length === 0) { %><div class="empty">データがありません。</div><% } %>
+    </div>
+  </div>
+
+  <div class="panel mb16"><div class="panel-h">コアビルド <span class="sub">よく一緒に完成している3アイテムの組み合わせ</span></div>
+    <% report.coreBuilds.forEach(cb => { %>
+      <div class="flex aic g12 mb12 wrapf">
+        <div class="flex g4"><% cb.ids.forEach(id => { %><img class="ico sq s40" src="<%= h.itemImg(id) %>" alt="<%= h.itemAlt(id) %>" data-hide-on-error><% }) %></div>
+        <span><%- tag(cb) %></span>
+        <span class="sm ml-auto"><%= cb.games %>試合 ・ ピック率 <%= cb.pickRate %>% ・ <span class="num b <%= rateCls(cb.winRate) %>"><%= cb.winRate %>%</span> <span class="xs mute">(<%= ci(cb) %>)</span></span>
+      </div>
+    <% }) %>
+    <% if (report.coreBuilds.length === 0) { %><div class="empty">3つ以上の完成アイテムがそろった試合が足りません。</div><% } %>
+    <div class="panel-h u30">よく持っている完成アイテム</div>
+    <div class="flex wrapf g8">
+      <% report.coreItems.forEach(i => { %>
+        <div class="center u31"><img class="ico sq s40" src="<%= h.itemImg(i.id) %>" alt="<%= h.itemAlt(i.id) %>" data-hide-on-error><div class="xs mute"><%= i.games %>回</div><div class="xs num <%= rateCls(i.winRate) %>"><%= i.winRate %>%</div></div>
+      <% }) %>
+      <% if (report.coreItems.length === 0) { %><div class="empty">データがありません。</div><% } %>
+    </div>
+  </div>
+
+  <h2 class="mb8">対面 <span class="sub sm mute">同じロールの相手 ・ <%= matchups.games %> 試合 ・ <%= matchups.opponents %> 体</span></h2>
+  <% if (matchups.rows.length === 0) { %>
+    <div class="panel empty mb16">ロール情報のある対面データがありません（ARAM などは対象外）。</div>
+  <% } else { %>
+    <div class="grid2 mb16">
+      <div class="panel"><div class="panel-h win">有利な相手 <span class="sub">最低 <%= matchups.minGames %> 試合</span></div>
+        <% matchups.best.forEach(m => { %><div class="flex aic g8 mb8"><a class="flex aic g8 grow" href="<%= vsUrl(m.championName) %>"><img class="ico s28" src="<%= h.champImg(m.championName) %>" alt="" data-hide-on-error><%= h.cname(m.championName) %></a><span class="num b win"><%= m.winRate %>%</span><span class="xs mute"><%= m.wins %>勝<%= m.losses %>敗</span></div><% }) %>
+        <% if (matchups.best.length === 0) { %><div class="empty">該当なし</div><% } %>
+      </div>
+      <div class="panel"><div class="panel-h lose">苦手な相手 <span class="sub">最低 <%= matchups.minGames %> 試合</span></div>
+        <% matchups.worst.forEach(m => { %><div class="flex aic g8 mb8"><a class="flex aic g8 grow" href="<%= vsUrl(m.championName) %>"><img class="ico s28" src="<%= h.champImg(m.championName) %>" alt="" data-hide-on-error><%= h.cname(m.championName) %></a><span class="num b lose"><%= m.winRate %>%</span><span class="xs mute"><%= m.wins %>勝<%= m.losses %>敗</span></div><% }) %>
+        <% if (matchups.worst.length === 0) { %><div class="empty">該当なし</div><% } %>
+      </div>
+    </div>
+
+    <div class="panel mb16">
+      <div class="flex between aic wrapf g8 mb8">
+        <div class="panel-h u32">全ての対面</div>
+        <div class="pills u32"><% Object.entries(matchupSorts).forEach(([k, label]) => { %><a class="pill <%= selected.sort === k ? 'on' : '' %>" href="<%= pageUrl({ sort: k === 'games' ? '' : k }) %>"><%= label %></a><% }) %></div>
+      </div>
+      <div class="scroll"><table class="tbl"><thead><tr><th scope="col">相手</th><th scope="col">試合数</th><th scope="col"><%= h.cname(name) %> の勝率</th><th scope="col">判定</th><th scope="col">ゴールド差</th><th scope="col">CS差</th><th scope="col">キル差</th></tr></thead><tbody>
+        <% matchups.rows.forEach(m => { %><tr>
+          <td><a class="flex aic g8" href="<%= vsUrl(m.championName) %>"><img class="ico s28" src="<%= h.champImg(m.championName) %>" alt="" data-hide-on-error><%= h.cname(m.championName) %></a></td>
+          <td class="num"><%= m.games %></td>
+          <td><span class="num b <%= rateCls(m.winRate) %>"><%= m.winRate %>%</span> <span class="xs mute"><%= m.wins %>勝<%= m.losses %>敗 (<%= ci(m) %>)</span></td>
+          <td class="verdict-<%= m.verdict %>"><%= verdictLabel[m.verdict] %></td>
+          <td class="num <%= m.diff.gold >= 0 ? 'win' : 'lose' %>"><%= m.diff.gold >= 0 ? '+' : '' %><%= m.diff.gold %></td>
+          <td class="num <%= m.diff.cs >= 0 ? 'win' : 'lose' %>"><%= m.diff.cs >= 0 ? '+' : '' %><%= m.diff.cs %></td>
+          <td class="num <%= m.diff.kills >= 0 ? 'win' : 'lose' %>"><%= m.diff.kills >= 0 ? '+' : '' %><%= m.diff.kills %></td>
+        </tr><% }) %>
+      </tbody></table></div>
+      <div class="note">「有利／不利」は、勝率の95%区間が50%をまたがないときだけ付けます（またぐと「互角」、最低 <%= matchups.minGames %> 試合未満は「参考」）。ゴールド差・CS差・キル差は試合終了時点の、同じロールの相手との平均の差です。相手の名前から2体の直接対決のページに進めます。</div>
+    </div>
+  <% } %>
+<% } else { %>
+  <div class="alert warn">この条件では、保存済みの試合にこのチャンピオンがいません。下の基本情報は公式データです。</div>
+<% } %>
+
+<% if (info) { %>
+  <div class="panel mb16">
+    <div class="panel-h">スキル</div>
+    <div class="flex aic g12 mb16">
+      <img class="ico sq s48" src="https://ddragon.leagueoflegends.com/cdn/<%= ver %>/img/passive/<%= info.passive.img %>" alt="" data-hide-on-error>
+      <div><div class="b">パッシブ: <%= info.passive.name %></div><div class="sm mute"><%= info.passive.desc %></div></div>
+    </div>
+    <% info.spells.forEach(s => { %>
+      <div class="flex g12 mb16">
+        <img class="ico sq s48" src="https://ddragon.leagueoflegends.com/cdn/<%= ver %>/img/spell/<%= s.img %>" alt="<%= s.name %>" data-hide-on-error>
+        <div class="grow">
+          <div class="b"><span class="skill sk-<%= s.key %> u33"><%= s.key %></span> <%= s.name %></div>
+          <div class="sm mute"><%= s.desc %></div>
+          <div class="xs mt8">クールダウン <span class="num"><%= s.cooldown %></span>秒 ・ コスト <span class="num"><%= s.cost %></span> ・ 射程 <span class="num"><%= s.range %></span></div>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+
+  <div class="grid2 mb16">
+    <div class="panel"><div class="panel-h">基本ステータス（レベル1）</div>
+      <table class="tbl sm"><tbody>
+        <tr><td class="mute">体力</td><td class="num"><%= S.hp %></td><td class="mute">物理防御</td><td class="num"><%= S.armor %></td></tr>
+        <tr><td class="mute">攻撃力</td><td class="num"><%= S.attackdamage %></td><td class="mute">魔法防御</td><td class="num"><%= S.spellblock %></td></tr>
+        <tr><td class="mute">射程</td><td class="num"><%= S.attackrange %></td><td class="mute">移動速度</td><td class="num"><%= S.movespeed %></td></tr>
+        <tr><td class="mute"><%= info.resource %></td><td class="num"><%= S.mp %></td><td class="mute">攻撃速度</td><td class="num"><%= (0.625 / (1 + (S.attackspeedoffset || 0))).toFixed(3) %></td></tr>
+      </tbody></table>
+    </div>
+    <div class="panel"><div class="panel-h">ヒント</div>
+      <% if (info.allyTips.length) { %><div class="sm b win mb4">使うとき</div><ul class="sm mute u34"><% info.allyTips.forEach(t => { %><li><%= t %></li><% }) %></ul><% } %>
+      <% if (info.enemyTips.length) { %><div class="sm b lose mb4">戦うとき</div><ul class="sm mute u35"><% info.enemyTips.forEach(t => { %><li><%= t %></li><% }) %></ul><% } %>
+    </div>
+  </div>
+
+  <div class="panel mb16"><div class="panel-h">ロア</div><div class="sm mute u36"><%= info.lore %></div></div>
+
+  <div class="panel"><div class="panel-h">スキン <span class="sub"><%= info.skins.length %> 種</span></div>
+    <div class="gridauto u37">
+      <% info.skins.forEach(s => { %>
+        <div class="center"><img class="u38" loading="lazy" src="https://ddragon.leagueoflegends.com/cdn/img/champion/loading/<%= name %>_<%= s.num %>.jpg" alt="" data-hide-on-error><div class="xs mute"><%= s.name %></div></div>
+      <% }) %>
+    </div>
+  </div>
+<% } %>
+<%- include('_foot') %>

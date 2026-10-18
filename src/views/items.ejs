@@ -1,0 +1,26 @@
+<%- include('_head', { title: 'アイテム', active: 'items' }) %>
+<h2 class="mb16">アイテム</h2>
+<div class="panel mb16">
+  <div class="flex g12 wrapf aic">
+    <input class="u43" type="search" data-filter=".item-card" placeholder="アイテム名・効果で検索">
+    <div class="pills u32">
+      <a class="pill <%= !tag ? 'on' : '' %>" href="/items">すべて</a>
+      <% Object.entries(tagLabels).forEach(([k, label]) => { %><a class="pill <%= tag === k ? 'on' : '' %>" href="/items?tag=<%= k %>"><%= label %></a><% }) %>
+    </div>
+  </div>
+</div>
+<div class="grid2">
+  <% items.forEach(it => { %>
+    <div class="panel item-card">
+      <div class="flex g12">
+        <img class="ico sq s48" src="<%= h.itemImg(it.id) %>" alt="<%= h.itemAlt(it.id) %>" loading="lazy" data-hide-on-error>
+        <div class="grow">
+          <div class="flex between"><b><%= it.name %></b><span class="num gold"><%= it.total %>G</span></div>
+          <div class="sm mute"><%= it.plain || it.desc %></div>
+          <% if (it.from.length) { %><div class="flex aic g4 mt8 xs mute">素材<% it.from.forEach(id => { %><img class="ico sq s20" src="<%= h.itemImg(id) %>" alt="<%= h.itemAlt(id) %>" data-hide-on-error><% }) %></div><% } %>
+        </div>
+      </div>
+    </div>
+  <% }) %>
+</div>
+<%- include('_foot') %>

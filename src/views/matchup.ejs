@@ -1,0 +1,70 @@
+<%
+  const rqs = locals.rqs || ''; const rq = locals.rq || '';
+  const rateCls = (r) => r >= 50 ? 'win' : 'lose';
+  const sign = (n) => (n >= 0 ? '+' : '') + n;
+  const verdictLabel = { good: '有利', bad: '不利', even: '互角', few: '参考（試合数が少ない）' };
+  const params = (over) => {
+    const o = Object.assign({ queue: selected.queueId, patch: selected.patch, band: selected.band === 'all' ? '' : selected.band, min: selected.min === 5 ? '' : selected.min, role: selected.role || 'all' }, over);
+    return Object.entries(o).filter(([, v]) => v).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+  };
+  const regionLabel = (locals.regions && locals.regions[locals.region]) ? locals.regions[locals.region].label : '';
+%>
+<%- include('_head', { title: '対面（直接対決）', active: 'champions' }) %>
+<h2 class="mb16">対面（直接対決）</h2>
+
+<form method="get" action="/matchup" class="panel mb16">
+  <div class="sm mute mb8">同じロールで当たった試合だけを、保存済みの試合から集計します（API は使いません）。</div>
+  <datalist id="champList"><% champList.forEach(c => { %><option value="<%= c.id %>"><%= c.name %></option><% }) %></datalist>
+  <div class="flex g12 wrapf aic">
+    <input class="u54" type="text" name="champ" list="champList" value="<%= champ %>" placeholder="自分（例: Ahri）" autocomplete="off" required>
+    <span class="mute">vs</span>
+    <input class="u54" type="text" name="vs" list="champList" value="<%= vs %>" placeholder="相手（例: Zed）" autocomplete="off" required>
+    <input type="hidden" name="role" value="<%= selected.role || 'all' %>">
+    <%- include('_region_select') %>
+    <select name="queue"><option value="">すべてのモード</option><% queues.forEach(o => { %><option value="<%= o.id %>" <%= selected.queueId === o.id ? 'selected' : '' %>><%= o.label %></option><% }) %></select>
+    <select name="band"><% Object.entries(bandGroups).forEach(([k, g]) => { %><option value="<%= k === 'all' ? '' : k %>" <%= selected.band === k ? 'selected' : '' %>>帯: <%= g.label %></option><% }) %></select>
+    <select name="patch"><option value="">全パッチ</option><% patches.forEach(p => { %><option value="<%= p %>" <%= selected.patch === p ? 'selected' : '' %>><%= p %></option><% }) %></select>
+    <select name="min"><% minOptions.forEach(m => { %><option value="<%= m %>" <%= selected.min === m ? 'selected' : '' %>>最低 <%= m %> 試合</option><% }) %></select>
+    <button class="btn primary">調べる</button>
+  </div>
+</form>
+
+<% if (error) { %><div class="alert warn mb16"><%= error %></div><% } %>
+
+<% if (result) { %>
+  <div class="pills">
+    <% roleOptions.forEach(r => { %><a class="pill <%= selected.role === r.role ? 'on' : '' %>" href="/matchup?champ=<%= champ %>&vs=<%= vs %>&<%= params({ role: r.role }) %><%= rqs %>"><%= roleLabels[r.role] || r.role %> <span class="xs">(この2体 <%= r.versus %>試合)</span></a><% }) %>
+    <% if (roleOptions.length > 1 || roleOptions.length === 0) { %><a class="pill <%= !selected.role ? 'on' : '' %>" href="/matchup?champ=<%= champ %>&vs=<%= vs %>&<%= params({ role: 'all' }) %><%= rqs %>">全ロール</a><% } %>
+  </div>
+
+  <div class="panel cut mb16">
+    <div class="flex between aic wrapf g12 mb12">
+      <div class="flex aic g12">
+        <a class="flex aic g8" href="/champion/<%= champ %><%= rq %>"><img class="ico s48" src="<%= h.champImg(champ) %>" alt="" data-hide-on-error><b class="lg"><%= h.cname(champ) %></b></a>
+        <span class="mute">vs</span>
+        <a class="flex aic g8" href="/champion/<%= vs %><%= rq %>"><img class="ico s48" src="<%= h.champImg(vs) %>" alt="" data-hide-on-error><b class="lg"><%= h.cname(vs) %></b></a>
+      </div>
+      <a class="btn sm" href="/matchup?champ=<%= vs %>&vs=<%= champ %>&<%= params({}) %><%= rqs %>">入れ替える</a>
+    </div>
+
+    <% if (result.games === 0) { %>
+      <div class="empty">この条件（<%= regionLabel %>）では、2体が同じロールで当たった試合が保存されていません。ロール・パッチ・帯の絞り込みをゆるめるか、試合を貯めてください。</div>
+    <% } else { %>
+      <div class="flex g24 wrapf">
+        <div class="statcell"><div class="k"><%= h.cname(champ) %> の勝率</div><div class="v <%= rateCls(result.winRate) %>"><%= result.winRate %>%</div></div>
+        <div class="statcell"><div class="k">試合数</div><div class="v"><%= result.games %></div></div>
+        <div class="statcell"><div class="k">勝敗</div><div class="v"><%= result.wins %>勝<%= result.losses %>敗</div></div>
+        <div class="statcell"><div class="k">95%区間</div><div class="v"><%= result.ci.lo %>〜<%= result.ci.hi %>%</div></div>
+        <div class="statcell"><div class="k">判定</div><div class="v verdict-<%= result.verdict %> u55"><%= verdictLabel[result.verdict] %></div></div>
+      </div>
+
+      <div class="scroll mt16"><table class="tbl"><thead><tr><th scope="col">平均（1試合あたり）</th><th scope="col"><%= h.cname(champ) %></th><th scope="col"><%= h.cname(vs) %></th><th scope="col">差</th></tr></thead><tbody>
+        <% [['ゴールド', 'gold'], ['CS', 'cs'], ['キル', 'kills'], ['デス', 'deaths'], ['アシスト', 'assists'], ['与ダメージ', 'damage'], ['視界スコア', 'vision']].forEach(([label, k]) => { %>
+          <tr><td><%= label %></td><td class="num"><%= result.me[k].toLocaleString('ja-JP') %></td><td class="num"><%= result.opp[k].toLocaleString('ja-JP') %></td><td class="num b <%= (k === 'deaths' ? result.diff[k] <= 0 : result.diff[k] >= 0) ? 'win' : 'lose' %>"><%= sign(result.diff[k]) %></td></tr>
+        <% }) %>
+      </tbody></table></div>
+      <div class="note">平均試合時間 <%= result.avgMinutes %> 分。数値は試合終了時点のもので、同じロールの相手との直接の比較です。<%= result.games < result.minGames ? '試合数が少ないため、勝率は大きくぶれます。' : '' %></div>
+    <% } %>
+  </div>
+<% } %>
+<%- include('_foot') %>

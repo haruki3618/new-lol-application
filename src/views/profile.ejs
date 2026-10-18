@@ -1,0 +1,212 @@
+<% const rqs = locals.rqs || ''; %>
+<%
+  const base = (queue, cnt, extra) =>
+    '/summoner?riotId=' + encodeURIComponent(riotId) + (queue ? '&queue=' + queue : '') + '&count=' + cnt + (extra || '') + rqs;
+  const wrCls = (r) => r >= 50 ? 'win' : 'lose';
+  const C = 2 * Math.PI * 40;
+  const lazy = (name) => '/api/tab/' + name + '?puuid=' + encodeURIComponent(account.puuid) + rqs;
+%>
+<%
+  const _gs = soloEntry ? soloEntry.tier + (['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(soloEntry.tier) ? '' : ' ' + soloEntry.rank) + ' ' + soloEntry.leaguePoints + 'LP' : (locals.leagueFailed ? 'ランク取得不可' : 'アンランク');
+  const _desc = riotId + ' の戦績。ソロ/デュオ: ' + _gs + (recent.games > 0 ? ' ・ 直近' + recent.games + '戦 ' + recent.wins + '勝' + recent.losses + '敗（勝率' + recent.winRate + '%）' : '');
+%>
+<%- include('_head', { title: riotId, active: '', description: _desc, ogImage: h.profileIcon(summoner.profileIconId) }) %>
+
+<div class="banner">
+  <% if (bannerChamp) { %><div class="bg" data-style="background-image:url('https://ddragon.leagueoflegends.com/cdn/img/champion/splash/<%= bannerChamp %>_0.jpg')"></div><% } %>
+  <div class="in">
+    <div class="avatar">
+      <img src="<%= h.profileIcon(summoner.profileIconId) %>" alt="" data-hide-on-error>
+      <span><%= summoner.summonerLevel %></span>
+    </div>
+    <div class="grow">
+      <h1 class="title-xl"><%= account.gameName %> <span class="mute u21">#<%= account.tagLine %></span></h1>
+      <div class="sm mute mt8">最終更新 <%= timeAgo(updatedAt) %> ・ <%= (locals.regions && locals.regions[locals.region]) ? locals.regions[locals.region].label : 'JP' %></div>
+    </div>
+    <div class="banner-actions">
+      <a class="btn primary" href="<%= base(selectedQueue, count, '&refresh=1') %>">戦績を更新</a>
+      <a class="btn live" href="/live?riotId=<%= encodeURIComponent(riotId) %><%= rqs %>">● ライブゲーム</a>
+      <a class="btn" href="/insights/<%= account.puuid %>" title="連敗後・時間帯・チャンピオンプールなどの傾向（保存済みの試合から計算。API は使いません）">プレイ傾向を診断</a>
+      <a class="btn" href="/report?riotId=<%= encodeURIComponent(riotId) %><%= rqs %>">週間レポート</a>
+    </div>
+  </div>
+  <div class="banner-tools" data-history-host></div>
+</div>
+
+<% if (locals.staleMin) { %><div class="panel empty inline-err mb16" role="status">Riot のサーバーが混み合っているため、プレイヤー情報（アイコン・レベル・マスタリー）は約 <%= staleMin %> 分前のデータです。</div><% } %>
+
+<% if (sync) { %>
+<div id="syncBar" class="sync-bar" role="status" aria-live="polite" data-puuid="<%= sync.puuid %>" data-region="<%= sync.region || '' %>" data-queue="<%= sync.queue %>" data-count="<%= sync.count %>" data-force="<%= sync.force %>">
+  <div class="flex aic g12">
+    <span class="spin" aria-hidden="true"></span>
+    <span id="syncText" class="sm">最新の試合を確認しています…</span>
+  </div>
+  <div class="bar u29"><i class="u51" id="syncProg"></i></div>
+</div>
+<% } %>
+
+<div data-tabs class="tabs" role="tablist" aria-label="戦績の表示">
+  <button class="tab on" data-tab="overview" role="tab" id="tab-overview" aria-controls="overview">概要</button>
+  <button class="tab" data-tab="champs" role="tab" id="tab-champs" aria-controls="champs">チャンピオン</button>
+  <button class="tab" data-tab="mastery" role="tab" id="tab-mastery" aria-controls="mastery">マスタリー</button>
+  <button class="tab" data-tab="analysis" role="tab" id="tab-analysis" aria-controls="analysis">ロール・仲間・パッチ</button>
+  <button class="tab" data-tab="lp" role="tab" id="tab-lp" aria-controls="lp">LP推移</button>
+</div>
+
+<div>
+  <!-- 概要 -->
+  <div class="tab-pane on" id="overview" role="tabpanel" aria-labelledby="tab-overview">
+    <div class="cols">
+      <div class="flex col g16">
+        <div class="panel cut">
+          <div class="panel-h">ランク</div>
+          <div class="mb16"><%- include('_rank', { e: soloEntry, label: 'ソロ / デュオ', failed: locals.leagueFailed }) %></div>
+          <%- include('_rank', { e: flexEntry, label: 'フレックス', failed: locals.leagueFailed }) %>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h">よく使うチャンピオン</div>
+          <% if (stats.champions.length === 0) { %><div class="empty">集計できる試合がありません。</div><% } %>
+          <% stats.champions.slice(0, 6).forEach(c => { %>
+            <a href="/champion/<%= c.championName %>" class="flex aic g12 mb12">
+              <img class="ico s40" src="<%= h.champImg(c.championName) %>" alt="" data-hide-on-error>
+              <div class="grow">
+                <div class="sm b"><%= h.cname(c.championName) %></div>
+                <div class="xs mute">KDA <span class="num win"><%= c.kda %></span></div>
+              </div>
+              <div class="right xs">
+                <div class="num b <%= wrCls(c.winRate) %>"><%= c.winRate %>%</div>
+                <div class="mute"><%= c.games %>試合</div>
+              </div>
+            </a>
+          <% }) %>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h">ロール</div>
+          <% if (stats.roles.length === 0) { %><div class="empty">ロール情報のある試合がありません。</div><% } %>
+          <% const maxRole = Math.max(1, ...stats.roles.map(r => r.games)); %>
+          <% stats.roles.forEach(r => { %>
+            <div class="mb12">
+              <div class="flex between xs mb4"><span class="b"><%= roleLabels[r.role] || r.role %></span><span class="mute"><%= r.games %>試合 ・ <span class="<%= wrCls(r.winRate) %>"><%= r.winRate %>%</span></span></div>
+              <div class="bar"><i data-style="width:<%= Math.round(r.games / maxRole * 100) %>%"></i></div>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+
+      <div>
+        <div class="pills">
+          <% queueFilters.forEach(q => { %>
+            <a class="pill <%= selectedQueue === q.id ? 'on' : '' %>" href="<%= base(q.id, 20) %>"><%= q.label %></a>
+          <% }) %>
+        </div>
+
+        <% if (recent.games > 0) { %>
+          <div class="panel mb16">
+            <div class="stat-strip">
+              <div class="donut">
+                <svg width="96" height="96" viewBox="0 0 96 96">
+                  <circle cx="48" cy="48" r="40" fill="none" stroke="var(--line)" stroke-width="9"/>
+                  <circle class="u52" cx="48" cy="48" r="40" fill="none" stroke="var(--cyan)" stroke-width="9" stroke-linecap="butt"
+                          stroke-dasharray="<%= (C * recent.winRate / 100).toFixed(1) %> <%= C.toFixed(1) %>"/>
+                </svg>
+                <div class="t"><div><%= recent.winRate %>%<small>勝率</small></div></div>
+              </div>
+              <div class="statcell"><div class="k">直近 <%= recent.games %> 戦</div><div class="v"><span class="win"><%= recent.wins %>勝</span> <span class="lose"><%= recent.losses %>敗</span></div></div>
+              <div class="statcell"><div class="k">平均 K / D / A</div><div class="v"><%= recent.avgKills %> / <span class="lose"><%= recent.avgDeaths %></span> / <%= recent.avgAssists %></div></div>
+              <div class="statcell"><div class="k">KDA</div><div class="v win"><%= recent.kda %></div></div>
+              <div class="statcell"><div class="k">平均スコア</div><div class="v gold"><%= recent.avgScore %></div></div>
+            </div>
+          </div>
+        <% } %>
+
+        <% if (matches.length === 0 && sync) { %>
+          <% for (let k = 0; k < 4; k++) { %><div class="panel skel" aria-hidden="true"><i></i><i></i><i></i></div><% } %>
+        <% } else if (matches.length === 0) { %><div class="panel empty">該当する試合が見つかりませんでした。別のモードを選んでください。</div><% } %>
+        <% matches.forEach((match, i) => { %><%- include('_match', { match, i }) %><% }) %>
+
+        <% if (matches.length >= count && count < 50) { %>
+          <div class="center mt16"><a class="btn" data-more href="<%= base(selectedQueue, Math.min(count + 10, 50)) %>">もっと見る</a></div>
+        <% } %>
+        <div class="note">スコアは試合内の相対評価（KDA・ダメージ・キル関与・ゴールド・視界）による独自計算で、OP.GG の OP スコアとは異なります。MVP は勝利チーム、ACE は敗北チームの最高スコアです。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- チャンピオン -->
+  <div class="tab-pane" id="champs" role="tabpanel" aria-labelledby="tab-champs">
+    <div class="panel">
+      <div class="panel-h">チャンピオン別の成績 <span class="sub"><%= selectedQueue ? queueFilters.find(q => q.id === selectedQueue).label : 'すべてのモード' %> ・ <%= stats.totalGames %> 試合 ・ 勝率 <%= stats.totalWinRate %>%</span></div>
+      <% if (stats.champions.length === 0) { %><div class="empty">集計できる試合がありません。</div><% } else { %>
+        <div class="scroll"><table class="tbl">
+          <thead><tr><th scope="col">チャンピオン</th><th scope="col">試合数</th><th scope="col">勝率</th><th scope="col">KDA</th><th scope="col">平均 K/D/A</th></tr></thead>
+          <tbody>
+            <% stats.champions.forEach(s => { %>
+              <tr>
+                <td><a class="flex aic g8" href="/champion/<%= s.championName %>"><img class="ico s32" src="<%= h.champImg(s.championName) %>" alt="" data-hide-on-error><b><%= h.cname(s.championName) %></b></a></td>
+                <td class="num"><%= s.games %></td>
+                <td><span class="num b <%= wrCls(s.winRate) %>"><%= s.winRate %>%</span> <span class="xs mute"><%= s.wins %>勝<%= s.losses %>敗</span></td>
+                <td class="num win"><%= s.kda %></td>
+                <td class="num"><%= s.avgKills %> / <%= s.avgDeaths %> / <%= s.avgAssists %></td>
+              </tr>
+            <% }) %>
+          </tbody></table></div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- 遅延読み込みタブ -->
+  <div class="tab-pane" id="mastery" role="tabpanel" aria-labelledby="tab-mastery" data-lazy="<%= lazy('mastery') %>"></div>
+
+  <!-- ロール・仲間・パッチ -->
+  <div class="tab-pane" id="analysis" role="tabpanel" aria-labelledby="tab-analysis">
+    <div class="grid2 mb16">
+      <div class="panel">
+        <div class="panel-h">ロール別成績</div>
+        <% if (stats.roles.length === 0) { %><div class="empty">ロール情報のある試合がありません。</div><% } else { %>
+          <table class="tbl"><thead><tr><th scope="col">ロール</th><th scope="col">試合数</th><th scope="col">勝率</th><th scope="col">KDA</th></tr></thead><tbody>
+            <% stats.roles.forEach(r => { %><tr><td class="b"><%= roleLabels[r.role] || r.role %></td><td class="num"><%= r.games %></td><td><span class="num b <%= wrCls(r.winRate) %>"><%= r.winRate %>%</span> <span class="xs mute"><%= r.wins %>勝<%= r.losses %>敗</span></td><td class="num win"><%= r.kda %></td></tr><% }) %>
+          </tbody></table>
+        <% } %>
+      </div>
+      <div class="panel">
+        <div class="panel-h">一緒にプレイした人</div>
+        <% if (stats.teammates.length === 0) { %><div class="empty">同じチームで2試合以上プレイした人はまだいません。</div><% } else { %>
+          <table class="tbl"><thead><tr><th scope="col">プレイヤー</th><th scope="col">試合数</th><th scope="col">勝率</th></tr></thead><tbody>
+            <% stats.teammates.forEach(t => { %><tr><td><a href="/summoner?riotId=<%= encodeURIComponent(t.name) %><%= rqs %>"><%= t.name %></a></td><td class="num"><%= t.games %></td><td><span class="num b <%= wrCls(t.winRate) %>"><%= t.winRate %>%</span> <span class="xs mute"><%= t.wins %>勝<%= t.losses %>敗</span></td></tr><% }) %>
+          </tbody></table>
+        <% } %>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-h">パッチ別の成績 <span class="sub">保存済みの試合（最大300件）</span></div>
+      <% if (stats.patches.length === 0) { %><div class="empty">パッチ情報のある試合がありません。</div><% } else { %>
+        <table class="tbl"><thead><tr><th scope="col">パッチ</th><th scope="col">試合数</th><th scope="col">勝率</th><th scope="col">KDA</th><th scope="col">よく使ったチャンピオン</th></tr></thead><tbody>
+          <% stats.patches.forEach(p => { %>
+            <tr><td class="num b"><%= p.patch %></td><td class="num"><%= p.games %></td>
+              <td><span class="num b <%= wrCls(p.winRate) %>"><%= p.winRate %>%</span> <span class="xs mute"><%= p.wins %>勝<%= p.losses %>敗</span></td>
+              <td class="num win"><%= p.kda %></td>
+              <td><% p.topChamps.forEach(c => { %><img class="ico s28 u53" src="<%= h.champImg(c) %>" title="<%= h.cname(c) %>" alt="" data-hide-on-error><% }) %></td></tr>
+          <% }) %>
+        </tbody></table>
+      <% } %>
+    </div>
+    <div class="note">データベースに保存されている試合（最大300件）から集計しています。</div>
+  </div>
+
+  <!-- LP推移 -->
+  <div class="tab-pane" id="lp" role="tabpanel" aria-labelledby="tab-lp">
+    <div class="panel">
+      <div class="panel-h">LP推移（ソロランク）</div>
+      <div class="sm mute mb12">このサイトでプロフィールを開いた時点からの記録です。試合後に更新するほど細かくなります。</div>
+      <% if (lpHistory.length < 2) { %>
+        <div class="empty">記録が2件以上たまるとグラフが表示されます（現在 <%= lpHistory.length %> 件）。</div>
+      <% } else { %><canvas id="lpChart" height="110"></canvas><% } %>
+    </div>
+  </div>
+</div>
+
+<script src="/static/vendor/chart.umd.js" defer></script>
+<script type="application/json" id="lp-data"><%- JSON.stringify(lpHistory).replace(/</g, '\\u003c') %></script>
+<%- include('_foot') %>

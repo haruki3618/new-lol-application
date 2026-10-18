@@ -1,0 +1,47 @@
+# push / PR のたびにテストと依存の脆弱性チェックを実行する（秘密情報は不要）。
+# v6.11.0: MongoDB のサービスコンテナで結合テスト（test/integration.test.js）も実行する。Riot API は呼ばない
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# 同じブランチで続けて push したとき、古い実行は止める（v6.9.0。待ち時間と Actions の使用量を減らす）
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      # テスト専用の DB 名（名前に test を含まないと結合テストは実行されない）
+      MONGODB_URI_TEST: mongodb://127.0.0.1:27017/lol-analytics-test
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      # 本番で動く依存だけを対象に、高い深刻度以上があれば失敗にする
+      - run: npm audit --omit=dev --audit-level=high

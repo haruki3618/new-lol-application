@@ -1,0 +1,36 @@
+# 試合データの自動収集（無料）。約5時間半ぶん集めて終わり、6時間おきに起動し直す。
+# 必要な Secrets: RIOT_API_KEY / MONGODB_URI（Settings → Secrets and variables → Actions）
+name: crawler
+
+on:
+  schedule:
+    - cron: "17 */6 * * *" # UTC。毎時0分・30分を避けて遅延を減らす
+  workflow_dispatch:
+
+# 同時に2本走らせない（同じキーのレート制限を食い合わないため）
+concurrency:
+  group: crawler
+  cancel-in-progress: false
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: クローラーを実行
+        run: npm run crawler
+        env:
+          RIOT_API_KEY: ${{ secrets.RIOT_API_KEY }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          STRICT_ENV: "1"
+          CRAWLER_MAX_MINUTES: "330"
+          CRAWLER_REGION: ${{ vars.CRAWLER_REGION || 'jp' }}
+          MAX_MATCHES: ${{ vars.MAX_MATCHES || '20000' }}
+          MATCH_TTL_DAYS: ${{ vars.MATCH_TTL_DAYS || '30' }}
+          MAX_DB_MB: ${{ vars.MAX_DB_MB || '400' }}

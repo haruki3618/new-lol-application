@@ -1,0 +1,19 @@
+# 依存パッケージと GitHub Actions の更新を、毎週まとめて Pull Request にする（v6.9.0）。
+# 脆弱性の確認は test.yml の `npm audit` が担当。ここは「古くなる前に更新案を出す」役割。
+# 受け取ったら `docs/RELEASE_CHECKLIST.md` を通してからマージする（CI の test が緑であること）。
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # 小さな更新（minor / patch）は 1 本にまとめて、PR の数を抑える。major は個別に出る
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

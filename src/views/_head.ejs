@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> | LoL Analytics</title>
+  <%
+    const metaDesc = locals.description || 'Riot ID を入力するだけで、LoL（JPサーバーほか）の戦績・ランク・チャンピオン別の成績・ライブゲームを確認できる非公式の戦績解析ツールです。';
+    const metaTitle = title + ' | LoL Analytics';
+  %>
+  <meta name="description" content="<%= metaDesc %>">
+  <meta name="theme-color" content="#0b1220">
+  <meta property="og:site_name" content="LoL Analytics">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="<%= metaTitle %>">
+  <meta property="og:description" content="<%= metaDesc %>">
+  <% if (locals.ogImage) { %><meta property="og:image" content="<%= ogImage %>"><% } %>
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/app.css<%= locals.assetV ? '?v=' + assetV : '' %>">
+</head>
+<body>
+<a class="skip-link" href="#main">本文へ移動</a>
+<%
+  const links = [
+    ['/champions', 'チャンピオン', 'champions'], ['/tierlist', 'ティアリスト', 'tierlist'], ['/ranking', 'ランキング', 'ranking'],
+    ['/multi', 'マルチ検索', 'multi'], ['/duo', 'デュオ比較', 'duo'], ['/watch', 'お気に入り', 'watch'],
+    ['/items', 'アイテム', 'items'], ['/status', 'サーバー', 'status']
+  ];
+%>
+<header class="nav">
+  <div class="nav-in">
+    <a class="logo" href="/" aria-label="LoL Analytics ホーム"><i></i>LoL<span class="logo-sub">&nbsp;Analytics</span></a>
+    <nav class="nav-links" aria-label="メインメニュー">
+      <% links.forEach(l => { %><a href="<%= l[0] %>" class="<%= active === l[2] ? 'on' : '' %>"<%- active === l[2] ? ' aria-current="page"' : '' %>><%= l[1] %></a><% }) %>
+    </nav>
+    <% if (!locals.hideNavSearch) { %>
+    <form class="nav-search" action="/search" method="post">
+      <%- include('_region_select') %>
+      <input type="text" name="riotId" placeholder="ゲーム名#タグ" aria-label="Riot ID を検索" autocomplete="off" required data-riotid>
+    </form>
+    <% } else { %><span class="nav-search"></span><% } %>
+    <button type="button" class="theme-btn" data-theme-toggle aria-label="表示テーマを切り替え" title="表示テーマ（自動 / ライト / ダーク）">◐</button>
+  </div>
+</header>
+<% if (typeof keyInvalid !== 'undefined' && keyInvalid) { %>
+<div class="wrap"><div class="alert warn u49">現在、Riot の API キーが無効か期限切れのため、新しいデータを取得できません（保存済みのデータだけ表示されます）。管理者が復旧するまでお待ちください。</div></div>
+<% } %>
+<main class="wrap" id="main">

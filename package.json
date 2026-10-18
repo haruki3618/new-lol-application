@@ -1,0 +1,27 @@
+{
+  "name": "lol-analytics-app",
+  "version": "6.11.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "start:all": "node src/server.js --with-crawler",
+    "dev": "node --watch src/server.js",
+    "crawler": "node src/crawlerMain.js",
+    "db:reset": "node scripts/resetDb.js",
+    "test": "node --test",
+    "agg:rebuild": "node scripts/rebuildAgg.js",
+    "watch:once": "node scripts/watchOnce.js",
+    "storage": "node scripts/storage.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "chart.js": "^4.4.1",
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "mongoose": "^8.9.5"
+  }
+}

@@ -1,0 +1,104 @@
+<% const rqs = locals.rqs || ''; %>
+<%
+  const fmt = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  const tName = (id) => id === 100 ? 'ブルーチーム' : id === 200 ? 'レッドチーム' : 'チーム ' + id;
+  const tColor = (id) => id === 100 ? 'var(--cyan)' : 'var(--coral)';
+  const num = (n) => Number(n || 0).toLocaleString('ja-JP');
+%>
+<%- include('_head', { title: 'ライブゲーム', active: '' }) %>
+<div class="flex between aic mb16">
+  <a class="btn" href="<%= backUrl %>">← 戦績に戻る</a>
+  <a class="btn sm" href="/live?riotId=<%= encodeURIComponent(riotId) %><%= rqs %>">再読み込み</a>
+</div>
+<div class="panel cut mb16">
+  <h2><span class="badge lose u8">LIVE</span><%= queueName %></h2>
+  <div class="sm mute mt8">経過時間 <span class="num" data-elapsed="<%= gameLength %>"><%= fmt(gameLength) %></span>（取得時点から進みます） ・ <%= riotId %></div>
+</div>
+
+<div class="panel mb16" id="forecast">
+  <div class="panel-h">簡易の勝敗予想<span class="sub">目安です</span></div>
+  <% if (prediction.available) { %>
+    <% const t = teams; const pa = prediction.probs[t[0].teamId], pb = prediction.probs[t[1].teamId]; %>
+    <div class="flex between sm mb8">
+      <span data-style="color:<%= tColor(t[0].teamId) %>"><b><%= tName(t[0].teamId) %></b> <span class="num"><%= pa %>%</span></span>
+      <span class="b"><%= prediction.label %><% if (prediction.leaderTeamId) { %>（<%= tName(prediction.leaderTeamId) %>）<% } %></span>
+      <span data-style="color:<%= tColor(t[1].teamId) %>"><span class="num"><%= pb %>%</span> <b><%= tName(t[1].teamId) %></b></span>
+    </div>
+    <div class="fc-bar"><i data-style="width:<%= pa %>%;background:<%= tColor(t[0].teamId) %>"></i><i data-style="width:<%= pb %>%;background:<%= tColor(t[1].teamId) %>"></i></div>
+    <div class="note">保存済みの試合が十分な人 <%= prediction.ready %> / <%= prediction.total %> 人の「そのチャンピオンでの勝率」と「全体の勝率」だけから計算しています。チャンピオン相性・ドラフト・連携・ランク差は見ていません。データ不足の人は平均的として扱います。試合数が少ない人の勝率は、全体の勝率に引き寄せて使っています。当たる保証はありません。</div>
+  <% } else { %>
+    <div class="sm mute"><%= prediction.reason %></div>
+  <% } %>
+</div>
+
+<% if (lacking.length) { %>
+  <div class="panel mb16" id="fillBox" data-puuids="<%= lacking.join(',') %>" data-region="<%= locals.region || '' %>">
+    <div class="flex aic g8 wrapf">
+      <button class="btn sm" id="fillBtn" type="button">データ不足の <%= lacking.length %> 人の直近の試合を取得</button>
+      <span class="sm mute" id="fillText">1人あたり最大11回の Riot API を使います（合計で最大 <%= lacking.length * 11 %> 回）。取得後に再読み込みします。</span>
+    </div>
+  </div>
+<% } %>
+
+<div class="grid2">
+  <% teams.forEach(team => { %>
+    <div class="panel" data-style="border-top:2px solid <%= tColor(team.teamId) %>">
+      <div class="panel-h" data-style="color:<%= tColor(team.teamId) %>"><%= tName(team.teamId) %></div>
+      <%- include('_comp', { comp: team.comp }) %>
+      <% team.players.forEach(p => { const s = p.summary; %>
+        <div class="live-p mb12<%= p.isMe ? ' me' : '' %>">
+          <div class="flex aic g8">
+            <% if (p.championId) { %><img class="ico s40" src="<%= h.champImg(p.championId) %>" alt="" data-hide-on-error><% } else { %><span class="ico s40"></span><% } %>
+            <div class="dots"><% [p.spell1, p.spell2].forEach(sp => { %><% if (h.spellImg(sp)) { %><img class="ico sq s20" src="<%= h.spellImg(sp) %>" alt="<%= h.spellAlt(sp) %>"><% } else { %><span class="ico sq s20"></span><% } %><% }) %></div>
+            <div class="dots"><% if (h.runeImg(p.keystone)) { %><img class="ico s20" src="<%= h.runeImg(p.keystone) %>" alt="<%= h.runeAlt(p.keystone) %>"><% } else { %><span class="ico s20"></span><% } %><% if (h.runeImg(p.subStyle)) { %><img class="ico s20" src="<%= h.runeImg(p.subStyle) %>" alt="<%= h.runeAlt(p.subStyle) %>"><% } else { %><span class="ico s20"></span><% } %></div>
+            <div class="grow u9">
+              <% if (p.name.includes('#')) { %><a class="b sm" href="/summoner?riotId=<%= encodeURIComponent(p.name) %><%= rqs %>"><%= p.name %></a><% } else { %><span class="b sm"><%= p.name %></span><% } %>
+              <div class="xs gold"><% if (p.championId) { %><a href="/champion/<%= p.championId %>"><%= h.cname(p.championId) %></a><% } %></div>
+            </div>
+            <div class="u10"><%- include('_rank', { e: p.solo, label: '', failed: p.rankFailed }) %></div>
+          </div>
+
+          <% if (!p.puuid) { %>
+            <div class="xs mute mt8">プレイヤー情報が非公開のため、成績は表示できません。</div>
+          <% } else { %>
+            <div class="live-stats xs mt8">
+              <div>
+                <span class="mute">このチャンピオン</span>
+                <% if (s.champion.n === 0) { %>
+                  <b>保存済みの試合なし</b>
+                <% } else { %>
+                  <b class="num"><%= s.champion.n %>戦 <%= s.champion.rate %>%</b>
+                  <% if (s.champion.few) { %><span class="mute">（試合数が少ない）</span><% } else { %><span class="mute">（95%の幅 <%= s.champion.ci.lo %>〜<%= s.champion.ci.hi %>%）</span><% } %>
+                  <% if (s.champion.kda) { %><span class="mute"> ・ KDA <%= s.champion.kda.ratio %></span><% } %>
+                <% } %>
+              </div>
+              <div>
+                <span class="mute">マスタリー</span>
+                <% if (p.mastery === null) { %><b>取得できませんでした</b>
+                <% } else if (p.mastery.level === 0 && p.mastery.points === 0) { %><b>未使用（Lv0）</b>
+                <% } else { %><b class="num">Lv<%= p.mastery.level %> ・ <%= num(p.mastery.points) %> pt</b><% } %>
+              </div>
+              <div>
+                <span class="mute">直近<%= s.recent.n %>試合</span>
+                <% if (s.recent.n === 0) { %><b>データ不足</b>
+                <% } else { %>
+                  <span class="form"><% s.recent.results.forEach(w => { %><i class="<%= w ? 'w' : 'l' %>" title="<%= w ? '勝' : '負' %>"></i><% }) %></span>
+                  <b class="num"><%= s.recent.wins %>勝<%= s.recent.n - s.recent.wins %>敗</b>
+                  <% if (s.recent.kda) { %><span class="mute"> ・ KDA <%= s.recent.kda.ratio %>（<%= s.recent.kda.k %>/<%= s.recent.kda.d %>/<%= s.recent.kda.a %>）</span><% } %>
+                  <% if (s.recent.n < 10) { %><span class="mute">（試合数が少ない）</span><% } %>
+                <% } %>
+              </div>
+              <div>
+                <span class="mute">全体の勝率<%= s.overall.scope === 'queue' ? '（同じキュー）' : '（全キュー）' %></span>
+                <% if (!s.enough) { %><b>データ不足（<%= s.overall.n %>試合）</b>
+                <% } else { %><b class="num"><%= s.overall.rate %>%（<%= s.overall.n %>試合）</b><% } %>
+              </div>
+            </div>
+          <% } %>
+        </div>
+      <% }) %>
+    </div>
+  <% }) %>
+</div>
+<div class="note">成績は、このサイトに保存されている試合だけから計算しています（Riot API で毎回取得はしません）。保存されていない人は「データ不足」と表示し、推測で埋めることはしません。</div>
+<%- include('_foot') %>

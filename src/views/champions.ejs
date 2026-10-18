@@ -1,0 +1,85 @@
+<% const rqs = locals.rqs || ''; const rq = locals.rq || ''; %>
+<%
+  const q = (over) => {
+    const s = Object.assign({ view: view, queue: selected.queueId, patch: selected.patch, role: selected.role, min: selected.min, sort: selected.sort, band: selected.band === 'all' ? '' : selected.band }, over);
+    return '/champions?' + Object.entries(s).filter(([, v]) => v).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&') + rqs;
+  };
+  const rateCls = (r) => r >= 50 ? 'win' : 'lose';
+  const qs = [selected.queueId ? 'queue=' + selected.queueId : '', selected.patch ? 'patch=' + selected.patch : ''].filter(Boolean).join('&');
+%>
+<%- include('_head', { title: 'チャンピオン', active: 'champions' }) %>
+<div class="flex between aic wrapf g12 mb16">
+  <h2>チャンピオン</h2>
+  <div class="pills u32">
+    <a class="pill <%= view === 'stats' ? 'on' : '' %>" href="<%= q({ view: 'stats' }) %>">統計</a>
+    <a class="pill" href="/tierlist<%= rq %>">ティアリスト</a>
+    <a class="pill" href="/matchup<%= rq %>">対面</a>
+    <a class="pill <%= view === 'all' ? 'on' : '' %>" href="<%= q({ view: 'all' }) %>">図鑑</a>
+  </div>
+</div>
+
+<% if (view === 'all') { %>
+  <div class="panel mb16">
+    <div class="flex g12 wrapf aic">
+      <input class="u43" type="search" data-filter=".champ-card" placeholder="チャンピオン名で検索">
+      <div class="pills u32">
+        <a class="pill <%= !selected.tag ? 'on' : '' %>" href="/champions?view=all<%= rqs %>">すべて</a>
+        <% Object.entries(tagLabels).forEach(([k, label]) => { %><a class="pill <%= selected.tag === k ? 'on' : '' %>" href="/champions?view=all&tag=<%= k %><%= rqs %>"><%= label %></a><% }) %>
+      </div>
+    </div>
+  </div>
+  <div class="gridauto u44">
+    <% allChamps.forEach(c => { %>
+      <a class="champ-card" href="/champion/<%= c.id %><%= rq %>">
+        <img src="<%= h.champImg(c.id) %>" alt="" loading="lazy" data-hide-on-error>
+        <div class="sm b"><%= c.name %></div>
+        <div class="xs mute u45"><%= c.title %></div>
+      </a>
+    <% }) %>
+  </div>
+<% } else { %>
+  <form method="get" action="/champions" class="panel mb16">
+    <input type="hidden" name="view" value="stats">
+    <input type="hidden" name="role" value="<%= selected.role || '' %>">
+    <div class="flex g12 wrapf aic">
+      <%- include('_region_select') %>
+      <select name="queue"><option value="">すべてのモード</option><% queues.forEach(o => { %><option value="<%= o.id %>" <%= selected.queueId === o.id ? 'selected' : '' %>><%= o.label %></option><% }) %></select>
+      <select name="band"><% Object.entries(bandGroups).forEach(([k, g]) => { %><option value="<%= k === 'all' ? '' : k %>" <%= selected.band === k ? 'selected' : '' %>>帯: <%= g.label %></option><% }) %></select>
+      <select name="patch"><option value="">全パッチ</option><% patches.forEach(p => { %><option value="<%= p %>" <%= selected.patch === p ? 'selected' : '' %>>パッチ <%= p %></option><% }) %></select>
+      <select name="min"><% minOptions.forEach(m => { %><option value="<%= m %>" <%= selected.min === m ? 'selected' : '' %>>最低 <%= m %> 試合</option><% }) %></select>
+      <select name="sort"><% Object.entries(sorts).forEach(([k, label]) => { %><option value="<%= k %>" <%= selected.sort === k ? 'selected' : '' %>><%= label %>順</option><% }) %></select>
+      <button class="btn primary">絞り込む</button>
+    </div>
+  </form>
+
+  <div class="pills">
+    <a class="pill <%= !selected.role ? 'on' : '' %>" href="<%= q({ role: '' }) %>">全ロール</a>
+    <% Object.entries(roleLabels).forEach(([k, label]) => { %><a class="pill <%= selected.role === k ? 'on' : '' %>" href="<%= q({ role: k }) %>"><%= label %></a><% }) %>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h">チャンピオン統計 <span class="sub">集計済み <%= totalMatches.toLocaleString('ja-JP') %> 試合</span></div>
+    <% if (rows.length === 0) { %>
+      <div class="empty">条件に合うチャンピオンがありません。最低試合数を下げるか、クローラーで試合を増やしてください。</div>
+    <% } else { %>
+      <div class="scroll"><table class="tbl">
+        <thead><tr><th scope="col">#</th><th scope="col">チャンピオン</th><th scope="col">勝率</th><th scope="col">ピック率</th><th scope="col">バン率</th><th scope="col">KDA</th><th scope="col">試合数</th></tr></thead>
+        <tbody>
+          <% rows.forEach((r, i) => { %>
+            <tr>
+              <td class="num mute"><%= i + 1 %></td>
+              <td><a class="flex aic g12" href="/champion/<%= r.championName %><%= qs ? '?' + qs + rqs : rq %>"><img class="ico s32" src="<%= h.champImg(r.championName) %>" alt="" loading="lazy" data-hide-on-error><b><%= h.cname(r.championName) %></b></a></td>
+              <td class="u46"><span class="num b <%= rateCls(r.winRate) %>"><%= r.winRate %>%</span><div class="bar <%= r.winRate >= 50 ? '' : 'red' %> u47"><i data-style="width:<%= r.winRate %>%"></i></div></td>
+              <td class="num"><%= r.pickRate %>%</td>
+              <td class="num"><%= r.banRate === null ? '-' : r.banRate + '%' %></td>
+              <td class="num win"><%= r.kda %></td>
+              <td class="num mute"><%= r.games %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table></div>
+    <% } %>
+    <div class="note">このサイトのデータベースに貯めた試合の集計です（検索・クローラーで集まった標本）。試合数が少ないと勝率は大きくぶれます。「帯」はクローラーが試合を見つけた起点プレイヤーのランク帯による目安で、試合の平均ランクではありません。バン率は、バンの情報がある試合（v5.2 以降に保存）<%= banMatches.toLocaleString('ja-JP') %> 件が分母です。</div>
+  </div>
+<% } %>
+<%- include('_foot') %>
